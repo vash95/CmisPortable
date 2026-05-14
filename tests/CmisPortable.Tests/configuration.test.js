@@ -111,3 +111,37 @@ test('SettingsStore rejects sync intervals outside the allowed range', async () 
   );
 });
 
+
+test('SettingsStore clears persisted connection and stored credentials', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-portable-test-'));
+  const settingsPath = path.join(tempDir, 'settings.json');
+  const store = new SettingsStore({
+    settingsPath,
+    secureStorage: {
+      async protect(value) {
+        return { value: `protected:${value}`, storage: 'test-secure-storage' };
+      },
+      async unprotect(secret) {
+        return secret.protectedValue.replace('protected:', '');
+      }
+    }
+  });
+
+  await store.save({
+    cmisUrl: 'https://example.test/cmis',
+    username: 'ana',
+    secretValue: 'secret-token',
+    localFolder: tempDir,
+    syncIntervalSeconds: 30,
+    runInBackground: true
+  });
+
+  const cleared = await store.clear();
+  const loadedAfterClear = await store.load();
+
+  assert.equal(cleared.cmisUrl, '');
+  assert.equal(cleared.username, '');
+  assert.equal(cleared.secret.protectedValue, '');
+  assert.deepEqual(loadedAfterClear, cleared);
+  await assert.rejects(() => fs.stat(settingsPath), { code: 'ENOENT' });
+});
