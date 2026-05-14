@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CmisPortable</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Asistente inicial</p>
+          <h1>Configura tu sincronización CMIS</h1>
+          <p>Define el servidor, credenciales y carpeta local. La aplicación puede permanecer en segundo plano desde la bandeja del sistema.</p>
+        </div>
+        <button id="minimizeToTray" class="ghost" type="button">Minimizar a bandeja</button>
+      </section>
+
+      <form id="settingsForm" class="card" novalidate>
+        <label>
+          <span>URL CMIS</span>
+          <input id="cmisUrl" name="cmisUrl" type="url" placeholder="https://servidor/cmis/browser" required>
+        </label>
+
+        <div class="grid">
+          <label>
+            <span>Usuario</span>
+            <input id="username" name="username" autocomplete="username" required>
+          </label>
+          <label>
+            <span>Tipo de secreto</span>
+            <select id="secretKind" name="secretKind">
+              <option value="password">Contraseña</option>
+              <option value="token">Token</option>
+            </select>
+          </label>
+        </div>
+
+        <label>
+          <span>Contraseña o token</span>
+          <input id="secretValue" name="secretValue" type="password" autocomplete="current-password">
+        </label>
+
+        <label>
+          <span>Carpeta local de sincronización</span>
+          <div class="folder-row">
+            <input id="localFolder" name="localFolder" placeholder="/ruta/a/carpeta" required>
+            <button id="chooseFolder" type="button">Elegir…</button>
+          </div>
+        </label>
+
+        <div class="grid">
+          <label>
+            <span>Intervalo de sincronización (segundos)</span>
+            <input id="syncIntervalSeconds" name="syncIntervalSeconds" type="number" min="15" step="15" value="60" required>
+          </label>
+          <label class="check">
+            <input id="runInBackground" name="runInBackground" type="checkbox" checked>
+            <span>Seguir ejecutando en segundo plano al cerrar la ventana</span>
+          </label>
+        </div>
+
+        <div id="messages" class="messages" role="status" aria-live="polite"></div>
+
+        <footer class="actions">
+          <button id="validate" class="secondary" type="button">Validar</button>
+          <button class="primary" type="submit">Guardar configuración</button>
+        </footer>
+      </form>
+
+      <section class="status card">
+        <h2>Estado</h2>
+        <p id="syncStatus">Esperando configuración guardada.</p>
+      </section>
+    </main>
+    <script src="renderer.js"></script>
+  </body>
+</html>

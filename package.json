@@ -1,0 +1,25 @@
+{
+  "name": "cmis-portable",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aplicación de escritorio para configurar y ejecutar sincronización CMIS portable.",
+  "main": "src/CmisPortable.App/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/CmisPortable.Tests/*.test.js"
+  },
+  "keywords": [
+    "cmis",
+    "sync",
+    "desktop",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^39.2.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
