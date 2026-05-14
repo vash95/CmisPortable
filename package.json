@@ -7,7 +7,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test tests/CmisPortable.Tests/*.test.js",
-    "dist:win": "electron-builder --win",
+    "dist:win": "electron-builder --win --publish never",
     "dist:linux": "electron-builder --linux",
     "dist:mac": "electron-builder --mac"
   },
