@@ -52,8 +52,9 @@
 
         <div class="grid">
           <label>
-            <span>Intervalo de sincronización (segundos)</span>
-            <input id="syncIntervalSeconds" name="syncIntervalSeconds" type="number" min="15" step="15" value="60" required>
+            <span>Intervalo de sincronización (10 a 60 segundos)</span>
+            <input id="syncIntervalSeconds" name="syncIntervalSeconds" type="range" min="10" max="60" step="5" value="60" required>
+            <output id="syncIntervalLabel" for="syncIntervalSeconds">60 segundos</output>
           </label>
           <label class="check">
             <input id="runInBackground" name="runInBackground" type="checkbox" checked>
@@ -99,6 +100,17 @@
           <button id="forceSync" class="secondary" type="button">Sincronizar ahora</button>
           <button id="refreshSyncStatus" class="ghost" type="button">Ver último estado</button>
         </footer>
+      </section>
+
+      <section class="log-console card" aria-labelledby="logConsoleTitle">
+        <div class="log-header">
+          <div>
+            <h2 id="logConsoleTitle">Consola de log</h2>
+            <p>Actividad reciente de la sincronización y de la configuración.</p>
+          </div>
+          <button id="clearLogs" class="ghost" type="button">Limpiar log</button>
+        </div>
+        <ol id="logEntries" class="log-entries" aria-live="polite" aria-label="Eventos de la aplicación"></ol>
       </section>
     </main>
     <script src="renderer.js"></script>

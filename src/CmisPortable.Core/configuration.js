@@ -1,4 +1,6 @@
 const DEFAULT_SYNC_INTERVAL_SECONDS = 60;
+const MIN_SYNC_INTERVAL_SECONDS = 10;
+const MAX_SYNC_INTERVAL_SECONDS = 60;
 
 function createDefaultSettings() {
   return {
@@ -19,7 +21,7 @@ function normalizeSettings(input = {}) {
   const defaults = createDefaultSettings();
   const rawInterval = Number(input.syncIntervalSeconds ?? defaults.syncIntervalSeconds);
   const syncIntervalSeconds = Number.isFinite(rawInterval) && rawInterval > 0
-    ? Math.max(15, Math.round(rawInterval))
+    ? clamp(Math.round(rawInterval), MIN_SYNC_INTERVAL_SECONDS, MAX_SYNC_INTERVAL_SECONDS)
     : defaults.syncIntervalSeconds;
 
   return {
@@ -39,6 +41,7 @@ function normalizeSettings(input = {}) {
 function validateSettings(input = {}) {
   const settings = normalizeSettings(input);
   const errors = [];
+  const rawInterval = Number(input.syncIntervalSeconds ?? settings.syncIntervalSeconds);
 
   if (!settings.cmisUrl) {
     errors.push({ field: 'cmisUrl', message: 'La URL CMIS es obligatoria.' });
@@ -61,8 +64,8 @@ function validateSettings(input = {}) {
     errors.push({ field: 'localFolder', message: 'La carpeta local de sincronización es obligatoria.' });
   }
 
-  if (settings.syncIntervalSeconds < 15) {
-    errors.push({ field: 'syncIntervalSeconds', message: 'El intervalo mínimo de sincronización es de 15 segundos.' });
+  if (!Number.isFinite(rawInterval) || rawInterval < MIN_SYNC_INTERVAL_SECONDS || rawInterval > MAX_SYNC_INTERVAL_SECONDS) {
+    errors.push({ field: 'syncIntervalSeconds', message: 'El intervalo de sincronización debe estar entre 10 segundos y 1 minuto.' });
   }
 
   return {
@@ -72,8 +75,14 @@ function validateSettings(input = {}) {
   };
 }
 
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
 module.exports = {
   DEFAULT_SYNC_INTERVAL_SECONDS,
+  MIN_SYNC_INTERVAL_SECONDS,
+  MAX_SYNC_INTERVAL_SECONDS,
   createDefaultSettings,
   normalizeSettings,
   validateSettings

@@ -2,6 +2,8 @@ const form = document.querySelector('#settingsForm');
 const messages = document.querySelector('#messages');
 const syncStatus = document.querySelector('#syncStatus');
 const syncBadge = document.querySelector('#syncBadge');
+const syncIntervalLabel = document.querySelector('#syncIntervalLabel');
+const logEntries = document.querySelector('#logEntries');
 
 const fields = {
   cmisUrl: document.querySelector('#cmisUrl'),
@@ -39,6 +41,7 @@ function applySettings(settings) {
   fields.localFolder.value = settings.localFolder ?? '';
   fields.syncIntervalSeconds.value = settings.syncIntervalSeconds ?? 60;
   fields.runInBackground.checked = settings.runInBackground ?? true;
+  updateIntervalLabel();
 
   if (settings.syncStatus) {
     renderSyncStatus(settings.syncStatus);
@@ -48,6 +51,52 @@ function applySettings(settings) {
 function showMessage(text, success = false) {
   messages.textContent = text;
   messages.classList.toggle('success', success);
+}
+
+function updateIntervalLabel() {
+  const value = Number(fields.syncIntervalSeconds.value || 60);
+  syncIntervalLabel.textContent = value === 60 ? '1 minuto' : `${value} segundos`;
+}
+
+function renderLogEntries(entries = []) {
+  logEntries.replaceChildren(...entries.map(createLogEntryElement));
+  logEntries.scrollTop = logEntries.scrollHeight;
+}
+
+function appendLogEntry(entry) {
+  logEntries.append(createLogEntryElement(entry));
+  while (logEntries.children.length > 200) {
+    logEntries.firstElementChild?.remove();
+  }
+  logEntries.scrollTop = logEntries.scrollHeight;
+}
+
+function createLogEntryElement(entry) {
+  const item = document.createElement('li');
+  item.className = 'log-entry';
+  item.dataset.level = entry.level ?? 'info';
+
+  const time = document.createElement('time');
+  time.dateTime = entry.timestamp ?? '';
+  time.textContent = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : '--:--:--';
+
+  const level = document.createElement('span');
+  level.className = 'log-level';
+  level.textContent = String(entry.level ?? 'info').toUpperCase();
+
+  const message = document.createElement('span');
+  message.className = 'log-message';
+  message.textContent = entry.message ?? 'Evento sin descripción';
+
+  item.append(time, level, message);
+
+  if (entry.details) {
+    const details = document.createElement('pre');
+    details.textContent = typeof entry.details === 'string' ? entry.details : JSON.stringify(entry.details, null, 2);
+    item.append(details);
+  }
+
+  return item;
 }
 
 async function validateDraft() {
@@ -109,6 +158,8 @@ document.querySelector('#chooseFolder').addEventListener('click', async () => {
   }
 });
 
+fields.syncIntervalSeconds.addEventListener('input', updateIntervalLabel);
+
 document.querySelector('#validate').addEventListener('click', validateDraft);
 
 document.querySelector('#minimizeToTray').addEventListener('click', () => {
@@ -131,6 +182,11 @@ document.querySelector('#refreshSyncStatus').addEventListener('click', () => {
   runSyncAction(() => window.cmisPortable.getSyncStatus(), 'Último estado actualizado.');
 });
 
+document.querySelector('#clearLogs').addEventListener('click', async () => {
+  const entries = await window.cmisPortable.clearLogs();
+  renderLogEntries(entries);
+});
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const isValid = await validateDraft();
@@ -144,6 +200,10 @@ form.addEventListener('submit', async (event) => {
 });
 
 window.cmisPortable.onSyncStatus(renderSyncStatus);
+window.cmisPortable.onLogEntry(appendLogEntry);
+
+updateIntervalLabel();
+window.cmisPortable.getLogs().then(renderLogEntries);
 
 window.cmisPortable.loadSettings()
   .then((settings) => {

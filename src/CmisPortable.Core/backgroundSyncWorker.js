@@ -120,6 +120,7 @@ class BackgroundSyncWorker extends EventEmitter {
     }
 
     this.intervalMs = nextIntervalMs;
+    this.logger?.info?.('Background sync interval updated', { intervalMs: this.intervalMs });
     if (!this.paused) {
       this.scheduleTimer();
     }
@@ -143,6 +144,11 @@ class BackgroundSyncWorker extends EventEmitter {
 
   updateStatus(status) {
     this.lastStatus = status;
+    this.logger?.info?.('Background sync status changed', {
+      state: status.state,
+      message: status.message,
+      trigger: status.trigger ?? null
+    });
     this.emit('status', this.getStatus());
   }
 }

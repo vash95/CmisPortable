@@ -10,5 +10,8 @@ contextBridge.exposeInMainWorld('cmisPortable', {
   pauseSync: () => ipcRenderer.invoke('sync:pause'),
   forceSync: () => ipcRenderer.invoke('sync:force'),
   getSyncStatus: () => ipcRenderer.invoke('sync:status'),
-  onSyncStatus: (callback) => ipcRenderer.on('sync:status', (_event, payload) => callback(payload))
+  getLogs: () => ipcRenderer.invoke('logs:get'),
+  clearLogs: () => ipcRenderer.invoke('logs:clear'),
+  onSyncStatus: (callback) => ipcRenderer.on('sync:status', (_event, payload) => callback(payload)),
+  onLogEntry: (callback) => ipcRenderer.on('logs:entry', (_event, payload) => callback(payload))
 });
