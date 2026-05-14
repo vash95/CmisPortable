@@ -166,6 +166,10 @@ document.querySelector('#minimizeToTray').addEventListener('click', () => {
   window.cmisPortable.minimizeToTray();
 });
 
+document.querySelector('#quitApp').addEventListener('click', () => {
+  window.cmisPortable.quitApp();
+});
+
 document.querySelector('#startSync').addEventListener('click', () => {
   runSyncAction(() => window.cmisPortable.startSync(), 'Sincronización en segundo plano iniciada.');
 });
@@ -187,6 +191,21 @@ document.querySelector('#clearLogs').addEventListener('click', async () => {
   renderLogEntries(entries);
 });
 
+document.querySelector('#clearConnection').addEventListener('click', async () => {
+  const confirmed = window.confirm('Se eliminará la conexión actual y las credenciales almacenadas. Después podrás crear una nueva conexión. ¿Continuar?');
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const cleared = await window.cmisPortable.clearSettings();
+    applySettings(cleared);
+    showMessage('Conexión actual eliminada. Introduce los datos para crear una nueva conexión.', true);
+  } catch (error) {
+    showMessage(`No se pudo eliminar la conexión actual: ${error.message}`);
+  }
+});
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const isValid = await validateDraft();
@@ -196,7 +215,7 @@ form.addEventListener('submit', async (event) => {
 
   const saved = await window.cmisPortable.saveSettings(collectSettings());
   applySettings(saved);
-  showMessage('Configuración guardada. La sincronización en segundo plano está programada.', true);
+  showMessage('Nueva conexión guardada. Las credenciales se recordarán al volver a abrir la aplicación.', true);
 });
 
 window.cmisPortable.onSyncStatus(renderSyncStatus);
@@ -209,7 +228,7 @@ window.cmisPortable.loadSettings()
   .then((settings) => {
     applySettings(settings);
     if (settings.cmisUrl) {
-      showMessage('Configuración existente cargada.', true);
+      showMessage('Configuración existente y credenciales almacenadas cargadas.', true);
     }
   })
   .catch((error) => showMessage(`No se pudo cargar la configuración: ${error.message}`));

@@ -14,7 +14,10 @@
           <h1>Configura tu sincronización CMIS</h1>
           <p>Define el servidor, credenciales y carpeta local. La aplicación puede permanecer en segundo plano desde la bandeja del sistema.</p>
         </div>
-        <button id="minimizeToTray" class="ghost" type="button">Minimizar a bandeja</button>
+        <div class="hero-actions">
+          <button id="minimizeToTray" class="ghost" type="button">Minimizar a bandeja</button>
+          <button id="quitApp" class="secondary danger" type="button">Cerrar aplicación</button>
+        </div>
       </section>
 
       <form id="settingsForm" class="card" novalidate>
@@ -65,8 +68,9 @@
         <div id="messages" class="messages" role="status" aria-live="polite"></div>
 
         <footer class="actions">
+          <button id="clearConnection" class="secondary danger" type="button">Eliminar conexión actual</button>
           <button id="validate" class="secondary" type="button">Validar</button>
-          <button class="primary" type="submit">Guardar configuración</button>
+          <button class="primary" type="submit">Guardar nueva conexión</button>
         </footer>
       </form>
 
