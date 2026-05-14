@@ -1,3 +1,4 @@
+const fs = require('node:fs');
 const path = require('node:path');
 const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, nativeImage, safeStorage } = require('electron');
 const { SettingsStore } = require('../CmisPortable.Core/settingsStore');
@@ -16,6 +17,7 @@ let logBuffer;
 let shouldRunInBackgroundOnClose = true;
 let appLocale = 'en';
 
+const APP_ICON_PATH = path.join(__dirname, 'assets', 'icon.svg');
 const MAX_LOG_ENTRIES = 200;
 
 const mainTranslations = {
@@ -131,6 +133,7 @@ function createWindow() {
     minWidth: 760,
     minHeight: 620,
     title: 'CmisPortable',
+    icon: createAppIcon(),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -157,7 +160,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromDataURL(createTrayIconDataUrl());
+  const icon = createAppIcon();
   tray = new Tray(icon);
   tray.setToolTip('CmisPortable');
   updateTrayMenu();
@@ -381,6 +384,11 @@ function hasStoredConnection(settings) {
   return Boolean(settings?.cmisUrl || settings?.username || settings?.localFolder || settings?.secret?.protectedValue);
 }
 
+function createAppIcon() {
+  const iconSvg = fs.readFileSync(APP_ICON_PATH, 'utf8');
+  return nativeImage.createFromDataURL(`data:image/svg+xml;utf8,${encodeURIComponent(iconSvg)}`);
+}
+
 async function loadStoredSettingsForStartup() {
   try {
     const settings = await store.load();
@@ -395,16 +403,6 @@ async function loadStoredSettingsForStartup() {
   }
 }
 
-function createTrayIconDataUrl() {
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-      <rect width="32" height="32" rx="8" fill="#2563eb"/>
-      <path d="M8 11h16v3H8zm0 7h11v3H8z" fill="white"/>
-      <circle cx="23" cy="20" r="3" fill="#93c5fd"/>
-    </svg>
-  `);
-}
-
 app.whenReady().then(() => {
   appLocale = resolveLocale(app.getLocale());
   logBuffer = [];
@@ -412,6 +410,7 @@ app.whenReady().then(() => {
   store = createStore();
   backgroundSyncWorker = createBackgroundSyncWorker();
   registerIpc();
+  app.dock?.setIcon(createAppIcon());
   createTray();
   loadStoredSettingsForStartup();
   createWindow();
