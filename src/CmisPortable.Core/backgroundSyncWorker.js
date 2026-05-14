@@ -1,4 +1,5 @@
 const { EventEmitter } = require('node:events');
+const { t } = require('./i18n');
 
 const DEFAULT_BACKGROUND_SYNC_INTERVAL_MS = 60_000;
 
@@ -12,16 +13,17 @@ class BackgroundSyncWorker extends EventEmitter {
     this.syncNowCallback = options.syncNow;
     this.intervalMs = options.intervalMs ?? DEFAULT_BACKGROUND_SYNC_INTERVAL_MS;
     this.logger = options.logger ?? console;
+    this.locale = options.locale;
     this.timer = null;
     this.running = false;
     this.paused = true;
-    this.lastStatus = createStatus('idle', 'Sincronización en segundo plano detenida.');
+    this.lastStatus = createStatus('idle', t('sync.status.idle', this.locale));
   }
 
   start({ runImmediately = false } = {}) {
     this.paused = false;
     this.scheduleTimer();
-    this.updateStatus(createStatus('scheduled', 'Sincronización en segundo plano programada.'));
+    this.updateStatus(createStatus('scheduled', t('sync.status.scheduled', this.locale)));
 
     if (runImmediately) {
       this.forceSync('start');
@@ -33,7 +35,7 @@ class BackgroundSyncWorker extends EventEmitter {
   pause() {
     this.paused = true;
     this.clearTimer();
-    this.updateStatus(createStatus('paused', 'Sincronización en segundo plano pausada.', this.lastStatus));
+    this.updateStatus(createStatus('paused', t('sync.status.paused', this.locale), this.lastStatus));
     return this.getStatus();
   }
 
@@ -44,7 +46,7 @@ class BackgroundSyncWorker extends EventEmitter {
   stop() {
     this.paused = true;
     this.clearTimer();
-    this.updateStatus(createStatus('stopped', 'Sincronización en segundo plano detenida.', this.lastStatus));
+    this.updateStatus(createStatus('stopped', t('sync.status.stopped', this.locale), this.lastStatus));
     return this.getStatus();
   }
 
@@ -58,25 +60,25 @@ class BackgroundSyncWorker extends EventEmitter {
 
   async runCycle(trigger, { ignorePaused }) {
     if (this.paused && !ignorePaused) {
-      const status = createStatus('paused', 'Ciclo omitido porque la sincronización está pausada.', this.lastStatus, { trigger });
+      const status = createStatus('paused', t('sync.status.skipped.paused', this.locale), this.lastStatus, { trigger });
       this.updateStatus(status);
       return status;
     }
 
     if (this.running) {
-      const status = createStatus('skipped', 'Ciclo omitido porque ya hay una sincronización en curso.', this.lastStatus, { trigger });
+      const status = createStatus('skipped', t('sync.status.skipped.running', this.locale), this.lastStatus, { trigger });
       this.updateStatus(status);
       return status;
     }
 
     this.running = true;
     const startedAt = new Date().toISOString();
-    this.updateStatus(createStatus('running', 'Sincronización en curso.', this.lastStatus, { trigger, startedAt }));
+    this.updateStatus(createStatus('running', t('sync.status.running', this.locale), this.lastStatus, { trigger, startedAt }));
 
     try {
       const result = await this.syncNowCallback({ trigger, startedAt });
       const finishedAt = new Date().toISOString();
-      const status = createStatus('success', 'Sincronización completada correctamente.', this.lastStatus, {
+      const status = createStatus('success', t('sync.status.success', this.locale), this.lastStatus, {
         trigger,
         startedAt,
         finishedAt,

@@ -1,3 +1,5 @@
+const { t } = require('./i18n');
+
 const DEFAULT_SYNC_INTERVAL_SECONDS = 60;
 const MIN_SYNC_INTERVAL_SECONDS = 10;
 const MAX_SYNC_INTERVAL_SECONDS = 60;
@@ -38,34 +40,35 @@ function normalizeSettings(input = {}) {
   };
 }
 
-function validateSettings(input = {}) {
+function validateSettings(input = {}, options = {}) {
   const settings = normalizeSettings(input);
+  const locale = options.locale;
   const errors = [];
   const rawInterval = Number(input.syncIntervalSeconds ?? settings.syncIntervalSeconds);
 
   if (!settings.cmisUrl) {
-    errors.push({ field: 'cmisUrl', message: 'La URL CMIS es obligatoria.' });
+    errors.push({ field: 'cmisUrl', message: t('validation.cmisUrl.required', locale) });
   } else {
     try {
       const url = new URL(settings.cmisUrl);
       if (!['http:', 'https:'].includes(url.protocol)) {
-        errors.push({ field: 'cmisUrl', message: 'La URL CMIS debe usar HTTP o HTTPS.' });
+        errors.push({ field: 'cmisUrl', message: t('validation.cmisUrl.protocol', locale) });
       }
     } catch {
-      errors.push({ field: 'cmisUrl', message: 'La URL CMIS no es válida.' });
+      errors.push({ field: 'cmisUrl', message: t('validation.cmisUrl.invalid', locale) });
     }
   }
 
   if (!settings.username) {
-    errors.push({ field: 'username', message: 'El usuario es obligatorio.' });
+    errors.push({ field: 'username', message: t('validation.username.required', locale) });
   }
 
   if (!settings.localFolder) {
-    errors.push({ field: 'localFolder', message: 'La carpeta local de sincronización es obligatoria.' });
+    errors.push({ field: 'localFolder', message: t('validation.localFolder.required', locale) });
   }
 
   if (!Number.isFinite(rawInterval) || rawInterval < MIN_SYNC_INTERVAL_SECONDS || rawInterval > MAX_SYNC_INTERVAL_SECONDS) {
-    errors.push({ field: 'syncIntervalSeconds', message: 'El intervalo de sincronización debe estar entre 10 segundos y 1 minuto.' });
+    errors.push({ field: 'syncIntervalSeconds', message: t('validation.syncIntervalSeconds.range', locale) });
   }
 
   return {

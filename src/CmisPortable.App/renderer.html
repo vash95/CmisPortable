@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,111 +10,111 @@
     <main class="shell">
       <section class="hero">
         <div>
-          <p class="eyebrow">Asistente inicial</p>
-          <h1>Configura tu sincronización CMIS</h1>
-          <p>Define el servidor, credenciales y carpeta local. La aplicación puede permanecer en segundo plano desde la bandeja del sistema.</p>
+          <p class="eyebrow" data-i18n="hero.eyebrow">Setup wizard</p>
+          <h1 data-i18n="hero.title">Configure your CMIS sync</h1>
+          <p data-i18n="hero.description">Define the server, credentials, and local folder. The application can keep running in the system tray.</p>
         </div>
         <div class="hero-actions">
-          <button id="minimizeToTray" class="ghost" type="button">Minimizar a bandeja</button>
-          <button id="quitApp" class="secondary danger" type="button">Cerrar aplicación</button>
+          <button id="minimizeToTray" class="ghost" type="button" data-i18n="action.minimizeToTray">Minimize to tray</button>
+          <button id="quitApp" class="secondary danger" type="button" data-i18n="action.quitApp">Close application</button>
         </div>
       </section>
 
       <form id="settingsForm" class="card" novalidate>
         <label>
-          <span>URL CMIS</span>
-          <input id="cmisUrl" name="cmisUrl" type="url" placeholder="https://servidor/cmis/browser" required>
+          <span data-i18n="field.cmisUrl">CMIS URL</span>
+          <input id="cmisUrl" name="cmisUrl" type="url" placeholder="https://server/cmis/browser" data-i18n-placeholder="placeholder.cmisUrl" required>
         </label>
 
         <div class="grid">
           <label>
-            <span>Usuario</span>
+            <span data-i18n="field.username">Username</span>
             <input id="username" name="username" autocomplete="username" required>
           </label>
           <label>
-            <span>Tipo de secreto</span>
+            <span data-i18n="field.secretKind">Secret type</span>
             <select id="secretKind" name="secretKind">
-              <option value="password">Contraseña</option>
-              <option value="token">Token</option>
+              <option value="password" data-i18n="secretKind.password">Password</option>
+              <option value="token" data-i18n="secretKind.token">Token</option>
             </select>
           </label>
         </div>
 
         <label>
-          <span>Contraseña o token</span>
+          <span data-i18n="field.secretValue">Password or token</span>
           <input id="secretValue" name="secretValue" type="password" autocomplete="current-password">
         </label>
 
         <label>
-          <span>Carpeta local de sincronización</span>
+          <span data-i18n="field.localFolder">Local sync folder</span>
           <div class="folder-row">
-            <input id="localFolder" name="localFolder" placeholder="/ruta/a/carpeta" required>
-            <button id="chooseFolder" type="button">Elegir…</button>
+            <input id="localFolder" name="localFolder" placeholder="/path/to/folder" data-i18n-placeholder="placeholder.localFolder" required>
+            <button id="chooseFolder" type="button" data-i18n="action.chooseFolder">Choose…</button>
           </div>
         </label>
 
         <div class="grid">
           <label>
-            <span>Intervalo de sincronización (10 a 60 segundos)</span>
+            <span data-i18n="field.syncInterval">Sync interval (10 to 60 seconds)</span>
             <input id="syncIntervalSeconds" name="syncIntervalSeconds" type="range" min="10" max="60" step="5" value="60" required>
-            <output id="syncIntervalLabel" for="syncIntervalSeconds">60 segundos</output>
+            <output id="syncIntervalLabel" for="syncIntervalSeconds">60 seconds</output>
           </label>
           <label class="check">
             <input id="runInBackground" name="runInBackground" type="checkbox" checked>
-            <span>Seguir ejecutando en segundo plano al cerrar la ventana</span>
+            <span data-i18n="field.runInBackground">Keep running in the background when the window is closed</span>
           </label>
         </div>
 
         <div id="messages" class="messages" role="status" aria-live="polite"></div>
 
         <footer class="actions">
-          <button id="clearConnection" class="secondary danger" type="button">Eliminar conexión actual</button>
-          <button id="validate" class="secondary" type="button">Validar</button>
-          <button class="primary" type="submit">Guardar nueva conexión</button>
+          <button id="clearConnection" class="secondary danger" type="button" data-i18n="action.clearConnection">Remove current connection</button>
+          <button id="validate" class="secondary" type="button" data-i18n="action.validate">Validate</button>
+          <button class="primary" type="submit" data-i18n="action.saveConnection">Save new connection</button>
         </footer>
       </form>
 
       <section class="status card">
         <div class="status-header">
           <div>
-            <h2>Estado de sincronización</h2>
-            <p id="syncStatus">Esperando configuración guardada.</p>
+            <h2 data-i18n="sync.title">Sync status</h2>
+            <p id="syncStatus" data-i18n="sync.waiting">Waiting for saved configuration.</p>
           </div>
-          <span id="syncBadge" class="badge">Sin iniciar</span>
+          <span id="syncBadge" class="badge" data-i18n="state.idle">Not started</span>
         </div>
 
-        <dl class="sync-metrics" aria-label="Último resultado de sincronización">
+        <dl class="sync-metrics" aria-label="Last sync result" data-i18n-aria-label="sync.metricsLabel">
           <div>
-            <dt>Descargados</dt>
+            <dt data-i18n="metric.downloaded">Downloaded</dt>
             <dd id="filesDownloaded">0</dd>
           </div>
           <div>
-            <dt>Actualizados</dt>
+            <dt data-i18n="metric.updated">Updated</dt>
             <dd id="filesUpdated">0</dd>
           </div>
           <div>
-            <dt>Eliminados</dt>
+            <dt data-i18n="metric.deleted">Deleted</dt>
             <dd id="filesDeleted">0</dd>
           </div>
         </dl>
 
         <footer class="actions sync-actions">
-          <button id="startSync" class="primary" type="button">Iniciar sincronización</button>
-          <button id="pauseSync" class="secondary" type="button">Pausar sincronización</button>
-          <button id="forceSync" class="secondary" type="button">Sincronizar ahora</button>
-          <button id="refreshSyncStatus" class="ghost" type="button">Ver último estado</button>
+          <button id="startSync" class="primary" type="button" data-i18n="action.startSync">Start sync</button>
+          <button id="pauseSync" class="secondary" type="button" data-i18n="action.pauseSync">Pause sync</button>
+          <button id="forceSync" class="secondary" type="button" data-i18n="action.forceSync">Sync now</button>
+          <button id="refreshSyncStatus" class="ghost" type="button" data-i18n="action.refreshStatus">View latest status</button>
         </footer>
       </section>
 
       <section class="log-console card" aria-labelledby="logConsoleTitle">
         <div class="log-header">
           <div>
-            <h2 id="logConsoleTitle">Consola de log</h2>
-            <p>Actividad reciente de la sincronización y de la configuración.</p>
+            <h2 id="logConsoleTitle" data-i18n="log.title">Log console</h2>
+            <p data-i18n="log.description">Recent sync and configuration activity.</p>
           </div>
-          <button id="clearLogs" class="ghost" type="button">Limpiar log</button>
+          <button id="clearLogs" class="ghost" type="button" data-i18n="action.clearLogs">Clear log</button>
         </div>
-        <ol id="logEntries" class="log-entries" aria-live="polite" aria-label="Eventos de la aplicación"></ol>
+        <ol id="logEntries" class="log-entries" aria-live="polite" aria-label="Application events" data-i18n-aria-label="log.eventsLabel"></ol>
       </section>
     </main>
     <script src="renderer.js"></script>

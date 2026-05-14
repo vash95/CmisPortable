@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { createDefaultSettings, normalizeSettings, validateSettings } = require('./configuration');
+const { t } = require('./i18n');
 
 class SettingsStore {
   constructor(options) {
@@ -10,6 +11,7 @@ class SettingsStore {
 
     this.settingsPath = options.settingsPath;
     this.secureStorage = options.secureStorage ?? createBase64FallbackSecureStorage();
+    this.locale = options.locale;
   }
 
   async load() {
@@ -33,11 +35,11 @@ class SettingsStore {
         protectedValue: protectedSecret.value,
         storage: protectedSecret.storage
       }
-    });
+    }, { locale: this.locale });
 
     if (!validation.valid) {
       const message = validation.errors.map((error) => `${error.field}: ${error.message}`).join('; ');
-      throw new Error(`Configuración inválida: ${message}`);
+      throw new Error(`${t('settings.invalid', this.locale)}: ${message}`);
     }
 
     await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });

@@ -4,6 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { validateSettings, normalizeSettings } = require('../../src/CmisPortable.Core/configuration');
+const { resolveLocale } = require('../../src/CmisPortable.Core/i18n');
 const { SettingsStore } = require('../../src/CmisPortable.Core/settingsStore');
 
 test('normalizeSettings applies the default one minute sync interval', () => {
@@ -16,6 +17,21 @@ test('validateSettings rejects missing required wizard fields', () => {
   const result = validateSettings({});
   assert.equal(result.valid, false);
   assert.deepEqual(result.errors.map((error) => error.field), ['cmisUrl', 'username', 'localFolder']);
+});
+
+
+test('validateSettings defaults to English messages and supports Spanish messages', () => {
+  const english = validateSettings({});
+  const spanish = validateSettings({}, { locale: 'es-ES' });
+
+  assert.equal(english.errors[0].message, 'The CMIS URL is required.');
+  assert.equal(spanish.errors[0].message, 'La URL CMIS es obligatoria.');
+});
+
+test('resolveLocale detects supported OS language and falls back to English', () => {
+  assert.equal(resolveLocale('es-ES'), 'es');
+  assert.equal(resolveLocale('fr-FR'), 'en');
+  assert.equal(resolveLocale(undefined), 'en');
 });
 
 test('normalizeSettings clamps the sync interval to the 10 to 60 second range', () => {
@@ -107,7 +123,7 @@ test('SettingsStore rejects sync intervals outside the allowed range', async () 
       syncIntervalSeconds: 61,
       runInBackground: true
     }),
-    /entre 10 segundos y 1 minuto/
+    /between 10 seconds and 1 minute/
   );
 });
 
