@@ -17,6 +17,8 @@ let shouldRunInBackgroundOnClose = true;
 let appLocale = 'en';
 
 const MAX_LOG_ENTRIES = 200;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
 
 const mainTranslations = {
   en: {
@@ -141,6 +143,10 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer.html'));
   mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
   mainWindow.on('close', (event) => {
     if (app.isQuiting) {
       return;
@@ -196,7 +202,13 @@ function updateTrayMenu() {
 function showMainWindow() {
   if (!mainWindow) {
     createWindow();
+    return;
   }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
   mainWindow.show();
   mainWindow.focus();
 }
@@ -405,30 +417,36 @@ function createTrayIconDataUrl() {
   `);
 }
 
-app.whenReady().then(() => {
-  appLocale = resolveLocale(app.getLocale());
-  logBuffer = [];
-  logInfo('app', mt('log.app.started'));
-  store = createStore();
-  backgroundSyncWorker = createBackgroundSyncWorker();
-  registerIpc();
-  createTray();
-  loadStoredSettingsForStartup();
-  createWindow();
-
-  app.on('activate', showMainWindow);
-});
-
-app.on('window-all-closed', (event) => {
-  if (shouldRunInBackgroundOnClose && !app.isQuiting) {
-    event.preventDefault();
-    return;
-  }
-
+if (!hasSingleInstanceLock) {
   app.quit();
-});
+} else {
+  app.on('second-instance', showMainWindow);
 
-app.on('before-quit', () => {
-  app.isQuiting = true;
-  backgroundSyncWorker?.stop();
-});
+  app.whenReady().then(() => {
+    appLocale = resolveLocale(app.getLocale());
+    logBuffer = [];
+    logInfo('app', mt('log.app.started'));
+    store = createStore();
+    backgroundSyncWorker = createBackgroundSyncWorker();
+    registerIpc();
+    createTray();
+    loadStoredSettingsForStartup();
+    createWindow();
+
+    app.on('activate', showMainWindow);
+  });
+
+  app.on('window-all-closed', (event) => {
+    if (shouldRunInBackgroundOnClose && !app.isQuiting) {
+      event.preventDefault();
+      return;
+    }
+
+    app.quit();
+  });
+
+  app.on('before-quit', () => {
+    app.isQuiting = true;
+    backgroundSyncWorker?.stop();
+  });
+}
