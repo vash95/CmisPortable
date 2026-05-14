@@ -33,6 +33,20 @@ body {
   margin-bottom: 28px;
 }
 
+.hero-brand {
+  align-items: center;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.app-logo {
+  aspect-ratio: 1;
+  border-radius: 28px;
+  box-shadow: 0 22px 58px rgb(37 99 235 / 34%);
+  inline-size: clamp(88px, 14vw, 132px);
+}
+
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -143,6 +157,7 @@ button:hover { background: var(--primary-strong); }
 
 @media (max-width: 720px) {
   .hero, .grid { grid-template-columns: 1fr; display: grid; }
+  .hero-brand { grid-template-columns: 1fr; justify-items: start; }
   .hero-actions { justify-content: stretch; }
   .hero-actions button { width: 100%; }
   .folder-row { grid-template-columns: 1fr; }
