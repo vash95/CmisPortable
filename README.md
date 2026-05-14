@@ -4,8 +4,8 @@ Aplicación de escritorio portable para preparar una sincronización CMIS. El pr
 
 ## Estructura
 
-- `src/CmisPortable.App/`: ventana inicial, integración con Electron, minimización a bandeja y almacenamiento seguro.
-- `src/CmisPortable.Core/`: modelo de configuración, validación, persistencia JSON y servicio de sincronización CMIS.
+- `src/CmisPortable.App/`: ventana inicial, integración con Electron, minimización a bandeja y controles de credenciales.
+- `src/CmisPortable.Core/`: modelo de configuración, validación, persistencia JSON, almacén de credenciales e implementación de sincronización CMIS.
 - `tests/CmisPortable.Tests/`: pruebas unitarias con `node:test`.
 
 ## Sincronización CMIS
@@ -31,4 +31,6 @@ npm start
 
 ## Configuración persistente
 
-La configuración se guarda como JSON en el directorio de datos de usuario de Electron. Los secretos se delegan a `safeStorage` de Electron cuando está disponible y, si no lo está, se guardan codificados con una marca explícita de fallback para evitar asumir seguridad inexistente.
+La configuración se guarda como JSON en el directorio de datos de usuario de Electron y solo contiene metadatos no sensibles: URL CMIS, carpeta local, intervalo, estado de ejecución e identificador de credencial.
+
+Las credenciales se guardan mediante `ICredentialStore` en el almacén seguro de cada plataforma: Windows Credential Manager en Windows, Keychain en macOS y Secret Service/libsecret en Linux. La UI permite borrar la credencial guardada y la aplicación no devuelve ni muestra contraseñas al cargar la configuración.

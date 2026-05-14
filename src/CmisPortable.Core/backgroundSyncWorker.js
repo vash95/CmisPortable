@@ -96,7 +96,7 @@ class BackgroundSyncWorker extends EventEmitter {
           code: error.code ?? error.statusCode ?? error.status ?? null
         }
       });
-      this.logger?.error?.('Background sync failed', error);
+      this.logger?.error?.('Background sync failed', sanitizeErrorForLog(error));
       this.updateStatus(status);
       return status;
     } finally {
@@ -169,7 +169,21 @@ function normalizeResult(result = {}) {
   };
 }
 
+function sanitizeErrorForLog(error) {
+  if (!error || typeof error !== 'object') {
+    return error;
+  }
+
+  return {
+    name: error.name,
+    message: error.message,
+    code: error.code ?? error.statusCode ?? error.status ?? null,
+    stack: error.stack
+  };
+}
+
 module.exports = {
   BackgroundSyncWorker,
-  DEFAULT_BACKGROUND_SYNC_INTERVAL_MS
+  DEFAULT_BACKGROUND_SYNC_INTERVAL_MS,
+  sanitizeErrorForLog
 };

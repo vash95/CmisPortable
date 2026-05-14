@@ -2,6 +2,7 @@ const form = document.querySelector('#settingsForm');
 const messages = document.querySelector('#messages');
 const syncStatus = document.querySelector('#syncStatus');
 const syncBadge = document.querySelector('#syncBadge');
+const credentialStatus = document.querySelector('#credentialStatus');
 
 const fields = {
   cmisUrl: document.querySelector('#cmisUrl'),
@@ -12,6 +13,8 @@ const fields = {
   syncIntervalSeconds: document.querySelector('#syncIntervalSeconds'),
   runInBackground: document.querySelector('#runInBackground')
 };
+
+let currentSecretMetadata = { kind: 'password', credentialId: '', storage: 'none' };
 
 const metrics = {
   downloaded: document.querySelector('#filesDownloaded'),
@@ -25,6 +28,7 @@ function collectSettings() {
     username: fields.username.value,
     secretKind: fields.secretKind.value,
     secretValue: fields.secretValue.value,
+    secret: currentSecretMetadata,
     localFolder: fields.localFolder.value,
     syncIntervalSeconds: Number(fields.syncIntervalSeconds.value),
     runInBackground: fields.runInBackground.checked
@@ -34,8 +38,13 @@ function collectSettings() {
 function applySettings(settings) {
   fields.cmisUrl.value = settings.cmisUrl ?? '';
   fields.username.value = settings.username ?? '';
-  fields.secretKind.value = settings.secret?.kind ?? 'password';
+  currentSecretMetadata = settings.secret ?? { kind: 'password', credentialId: '', storage: 'none' };
+  fields.secretKind.value = currentSecretMetadata.kind ?? 'password';
   fields.secretValue.value = settings.secretValue ?? '';
+  fields.secretValue.placeholder = settings.hasSavedCredential
+    ? 'Credencial guardada; escribe un valor para reemplazarla'
+    : '';
+  renderCredentialStatus(settings);
   fields.localFolder.value = settings.localFolder ?? '';
   fields.syncIntervalSeconds.value = settings.syncIntervalSeconds ?? 60;
   fields.runInBackground.checked = settings.runInBackground ?? true;
@@ -73,6 +82,16 @@ function renderSyncStatus(status = {}) {
   metrics.downloaded.textContent = result.downloaded ?? 0;
   metrics.updated.textContent = result.updated ?? 0;
   metrics.deleted.textContent = result.deleted ?? 0;
+}
+
+function renderCredentialStatus(settings = {}) {
+  const credentialId = settings.secret?.credentialId;
+  if (!credentialId) {
+    credentialStatus.textContent = 'Sin credenciales guardadas.';
+    return;
+  }
+
+  credentialStatus.textContent = `Credencial guardada en ${settings.secret.storage}: ${credentialId}`;
 }
 
 function getStateLabel(state, paused) {
@@ -129,6 +148,18 @@ document.querySelector('#forceSync').addEventListener('click', () => {
 
 document.querySelector('#refreshSyncStatus').addEventListener('click', () => {
   runSyncAction(() => window.cmisPortable.getSyncStatus(), 'Último estado actualizado.');
+});
+
+document.querySelector('#deleteCredentials').addEventListener('click', async () => {
+  try {
+    const settings = await window.cmisPortable.deleteCredentials();
+    applySettings(settings);
+    showMessage(settings.credentialDeleted
+      ? 'Credenciales guardadas eliminadas.'
+      : 'No había credenciales guardadas para eliminar.', true);
+  } catch (error) {
+    showMessage(`No se pudieron eliminar las credenciales: ${error.message}`);
+  }
 });
 
 form.addEventListener('submit', async (event) => {

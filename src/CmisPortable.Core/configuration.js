@@ -3,12 +3,11 @@ const DEFAULT_SYNC_INTERVAL_SECONDS = 60;
 function createDefaultSettings() {
   return {
     cmisUrl: '',
-    username: '',
     localFolder: '',
     syncIntervalSeconds: DEFAULT_SYNC_INTERVAL_SECONDS,
     secret: {
       kind: 'password',
-      protectedValue: '',
+      credentialId: '',
       storage: 'none'
     },
     runInBackground: true
@@ -25,14 +24,18 @@ function normalizeSettings(input = {}) {
   return {
     ...defaults,
     cmisUrl: String(input.cmisUrl ?? defaults.cmisUrl).trim(),
-    username: String(input.username ?? defaults.username).trim(),
     localFolder: String(input.localFolder ?? defaults.localFolder).trim(),
     syncIntervalSeconds,
-    secret: {
-      ...defaults.secret,
-      ...(input.secret ?? {})
-    },
+    secret: normalizeSecretMetadata(input.secret ?? defaults.secret),
     runInBackground: Boolean(input.runInBackground ?? defaults.runInBackground)
+  };
+}
+
+function normalizeSecretMetadata(secret = {}) {
+  return {
+    kind: String(secret.kind ?? 'password'),
+    credentialId: String(secret.credentialId ?? '').trim(),
+    storage: String(secret.storage ?? 'none')
   };
 }
 
@@ -53,10 +56,6 @@ function validateSettings(input = {}) {
     }
   }
 
-  if (!settings.username) {
-    errors.push({ field: 'username', message: 'El usuario es obligatorio.' });
-  }
-
   if (!settings.localFolder) {
     errors.push({ field: 'localFolder', message: 'La carpeta local de sincronización es obligatoria.' });
   }
@@ -72,9 +71,32 @@ function validateSettings(input = {}) {
   };
 }
 
+function validateCredentialDraft(input = {}) {
+  const errors = [];
+  const username = String(input.username ?? '').trim();
+  const secretValue = String(input.secretValue ?? '');
+
+  if (!username) {
+    errors.push({ field: 'username', message: 'El usuario es obligatorio.' });
+  }
+
+  if (!secretValue && !input.secret?.credentialId) {
+    errors.push({ field: 'secretValue', message: 'La contraseña o token es obligatorio.' });
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    username,
+    secretValue
+  };
+}
+
 module.exports = {
   DEFAULT_SYNC_INTERVAL_SECONDS,
   createDefaultSettings,
   normalizeSettings,
-  validateSettings
+  normalizeSecretMetadata,
+  validateSettings,
+  validateCredentialDraft
 };

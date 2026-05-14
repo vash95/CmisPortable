@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('cmisPortable', {
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   validateSettings: (settings) => ipcRenderer.invoke('settings:validate', settings),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
+  deleteCredentials: () => ipcRenderer.invoke('credentials:delete'),
   chooseFolder: () => ipcRenderer.invoke('folder:choose'),
   minimizeToTray: () => ipcRenderer.invoke('window:minimizeToTray'),
   startSync: () => ipcRenderer.invoke('sync:start'),

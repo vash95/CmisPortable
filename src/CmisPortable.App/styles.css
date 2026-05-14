@@ -194,3 +194,30 @@ button:hover { background: var(--primary-strong); }
 @media (max-width: 720px) {
   .status-header, .sync-metrics { grid-template-columns: 1fr; display: grid; }
 }
+
+.credential-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin: -4px 0 18px;
+}
+
+.hint {
+  font-size: .9rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.danger {
+  border-color: #f87171;
+  color: #fecaca;
+}
+
+.danger:hover {
+  background: rgb(127 29 29 / 40%);
+}
+
+@media (max-width: 720px) {
+  .credential-row { align-items: stretch; flex-direction: column; }
+}

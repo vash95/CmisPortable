@@ -1,6 +1,16 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { createDefaultSettings, normalizeSettings, validateSettings } = require('./configuration');
+const {
+  createDefaultSettings,
+  normalizeSettings,
+  validateCredentialDraft,
+  validateSettings
+} = require('./configuration');
+const {
+  PlatformCredentialStore,
+  createCredentialId,
+  createCredentialMetadata
+} = require('./credentialStore');
 
 class SettingsStore {
   constructor(options) {
@@ -9,7 +19,7 @@ class SettingsStore {
     }
 
     this.settingsPath = options.settingsPath;
-    this.secureStorage = options.secureStorage ?? createBase64FallbackSecureStorage();
+    this.credentialStore = options.credentialStore ?? new PlatformCredentialStore();
   }
 
   async load() {
@@ -25,45 +35,95 @@ class SettingsStore {
   }
 
   async save(plainSettings) {
-    const protectedSecret = await this.secureStorage.protect(String(plainSettings.secretValue ?? ''));
-    const settings = normalizeSettings({
-      ...plainSettings,
-      secret: {
-        kind: plainSettings.secretKind ?? 'password',
-        protectedValue: protectedSecret.value,
-        storage: protectedSecret.storage
-      }
-    });
-    const validation = validateSettings(settings);
+    const settingsValidation = validateSettings(plainSettings);
+    const credentialValidation = validateCredentialDraft(plainSettings);
+    const errors = [...settingsValidation.errors, ...credentialValidation.errors];
 
-    if (!validation.valid) {
-      const message = validation.errors.map((error) => `${error.field}: ${error.message}`).join('; ');
+    if (errors.length > 0) {
+      const message = errors.map((error) => `${error.field}: ${error.message}`).join('; ');
       throw new Error(`Configuración inválida: ${message}`);
     }
 
-    await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
-    await fs.writeFile(this.settingsPath, `${JSON.stringify(validation.settings, null, 2)}\n`, 'utf8');
-    return validation.settings;
+    const secretKind = plainSettings.secretKind ?? plainSettings.secret?.kind ?? 'password';
+    const existingCredentialId = plainSettings.secret?.credentialId;
+    let credentialMetadata;
+
+    if (credentialValidation.secretValue) {
+      const credentialId = existingCredentialId || createCredentialId({
+        cmisUrl: settingsValidation.settings.cmisUrl,
+        username: credentialValidation.username
+      });
+      credentialMetadata = await this.credentialStore.saveCredential({
+        credentialId,
+        username: credentialValidation.username,
+        secret: credentialValidation.secretValue,
+        kind: secretKind
+      });
+    } else {
+      credentialMetadata = {
+        ...plainSettings.secret,
+        kind: secretKind
+      };
+    }
+
+    const settings = normalizeSettings({
+      ...settingsValidation.settings,
+      secret: credentialMetadata
+    });
+
+    await this.writeSettings(settings);
+    return settings;
   }
 
   async revealSecret(settings) {
-    if (!settings?.secret?.protectedValue) {
+    const credentialId = settings?.secret?.credentialId;
+    if (!credentialId) {
       return '';
     }
-    return this.secureStorage.unprotect(settings.secret);
+
+    const credential = await this.credentialStore.getCredential(credentialId);
+    return credential?.secret ?? '';
+  }
+
+  async revealCredential(settings) {
+    const credentialId = settings?.secret?.credentialId;
+    if (!credentialId) {
+      return null;
+    }
+
+    return this.credentialStore.getCredential(credentialId);
+  }
+
+  async deleteSavedCredential(settings = undefined) {
+    const currentSettings = settings ?? await this.load();
+    const credentialId = currentSettings?.secret?.credentialId;
+    if (!credentialId) {
+      return { deleted: false, settings: normalizeSettings(currentSettings) };
+    }
+
+    const deleted = await this.credentialStore.deleteCredential(credentialId);
+    const nextSettings = normalizeSettings({
+      ...currentSettings,
+      secret: createCredentialMetadata('', process.platform, currentSettings.secret?.kind ?? 'password')
+    });
+    nextSettings.secret.storage = 'none';
+    await this.writeSettings(nextSettings);
+    return { deleted, settings: nextSettings };
+  }
+
+  async writeSettings(settings) {
+    await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
+    await fs.writeFile(this.settingsPath, `${JSON.stringify(normalizeSettings(settings), null, 2)}\n`, 'utf8');
   }
 }
 
 function createBase64FallbackSecureStorage() {
   return {
-    async protect(value) {
-      return {
-        value: Buffer.from(value, 'utf8').toString('base64'),
-        storage: 'base64-fallback'
-      };
+    async protect() {
+      throw new Error('createBase64FallbackSecureStorage is deprecated. Use ICredentialStore instead.');
     },
-    async unprotect(secret) {
-      return Buffer.from(secret.protectedValue, 'base64').toString('utf8');
+    async unprotect() {
+      throw new Error('createBase64FallbackSecureStorage is deprecated. Use ICredentialStore instead.');
     }
   };
 }

@@ -1,11 +1,11 @@
 const path = require('node:path');
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, nativeImage, safeStorage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, nativeImage } = require('electron');
 const { SettingsStore } = require('../CmisPortable.Core/settingsStore');
-const { validateSettings } = require('../CmisPortable.Core/configuration');
+const { validateCredentialDraft, validateSettings } = require('../CmisPortable.Core/configuration');
 const { CmisSyncService } = require('../CmisPortable.Core/cmisSyncService');
 const { ICmisClient } = require('../CmisPortable.Core/cmisClient');
 const { BackgroundSyncWorker } = require('../CmisPortable.Core/backgroundSyncWorker');
-const { createElectronSecureStorage } = require('./secureStorage');
+const { PlatformCredentialStore } = require('../CmisPortable.Core/credentialStore');
 
 let mainWindow;
 let tray;
@@ -15,7 +15,7 @@ let backgroundSyncWorker;
 function createStore() {
   return new SettingsStore({
     settingsPath: path.join(app.getPath('userData'), 'settings.json'),
-    secureStorage: createElectronSecureStorage(safeStorage)
+    credentialStore: new PlatformCredentialStore()
   });
 }
 
@@ -40,7 +40,10 @@ async function runConfiguredSync() {
     throw new Error(validation.errors.map((error) => error.message).join(' '));
   }
 
-  const password = await store.revealSecret(settings);
+  const credential = await store.revealCredential(settings);
+  if (!credential?.username || !credential?.secret) {
+    throw new Error('No hay credenciales guardadas para sincronizar.');
+  }
   const syncService = new CmisSyncService({
     cmisClient: createCmisClient(),
     localRoot: settings.localFolder,
@@ -49,8 +52,8 @@ async function runConfiguredSync() {
 
   return syncService.SyncAsync({
     url: settings.cmisUrl,
-    username: settings.username,
-    password
+    username: credential.username,
+    password: credential.secret
   });
 }
 
@@ -150,23 +153,49 @@ function toggleBackgroundSync() {
 function registerIpc() {
   ipcMain.handle('settings:load', async () => {
     const settings = await store.load();
-    const secretValue = await store.revealSecret(settings);
+    const credential = await store.revealCredential(settings);
     configureBackgroundSync(settings);
     return {
       ...settings,
-      secretValue,
+      username: credential?.username ?? '',
+      secretValue: '',
+      hasSavedCredential: Boolean(credential),
       syncStatus: backgroundSyncWorker.getStatus()
     };
   });
 
-  ipcMain.handle('settings:validate', (_event, draft) => validateSettings(draft));
+  ipcMain.handle('settings:validate', (_event, draft) => {
+    const settingsValidation = validateSettings(draft);
+    const credentialValidation = validateCredentialDraft(draft);
+    const errors = [...settingsValidation.errors, ...credentialValidation.errors];
+    return {
+      valid: errors.length === 0,
+      errors,
+      settings: settingsValidation.settings
+    };
+  });
 
   ipcMain.handle('settings:save', async (_event, draft) => {
     const saved = await store.save(draft);
     const syncStatus = configureBackgroundSync(saved);
     return {
       ...saved,
-      secretValue: draft.secretValue ?? '',
+      username: draft.username ?? '',
+      secretValue: '',
+      hasSavedCredential: Boolean(saved.secret?.credentialId),
+      syncStatus
+    };
+  });
+
+  ipcMain.handle('credentials:delete', async () => {
+    const result = await store.deleteSavedCredential();
+    const syncStatus = configureBackgroundSync(result.settings);
+    return {
+      ...result.settings,
+      username: '',
+      secretValue: '',
+      hasSavedCredential: false,
+      credentialDeleted: result.deleted,
       syncStatus
     };
   });

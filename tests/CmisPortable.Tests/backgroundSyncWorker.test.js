@@ -57,3 +57,21 @@ test('BackgroundSyncWorker records sync errors without throwing', async () => {
   assert.equal(status.state, 'error');
   assert.equal(status.error.message, 'CMIS unavailable');
 });
+
+test('BackgroundSyncWorker logs sanitized errors without credential fields', async () => {
+  let loggedError;
+  const error = new Error('Request failed');
+  error.password = 'secret-token';
+  error.config = { auth: { password: 'secret-token' } };
+  const worker = new BackgroundSyncWorker({
+    syncNow: async () => {
+      throw error;
+    },
+    logger: { info() {}, error(_message, payload) { loggedError = payload; } }
+  });
+
+  await worker.forceSync('manual');
+
+  assert.equal(JSON.stringify(loggedError).includes('secret-token'), false);
+  assert.equal(loggedError.message, 'Request failed');
+});
