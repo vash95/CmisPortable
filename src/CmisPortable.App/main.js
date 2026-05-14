@@ -11,6 +11,9 @@ let mainWindow;
 let tray;
 let store;
 let backgroundSyncWorker;
+let logBuffer;
+
+const MAX_LOG_ENTRIES = 200;
 
 function createStore() {
   return new SettingsStore({
@@ -22,7 +25,7 @@ function createStore() {
 function createBackgroundSyncWorker() {
   const worker = new BackgroundSyncWorker({
     syncNow: runConfiguredSync,
-    logger: console
+    logger: createAppLogger('sync')
   });
 
   worker.on('status', (status) => {
@@ -40,11 +43,16 @@ async function runConfiguredSync() {
     throw new Error(validation.errors.map((error) => error.message).join(' '));
   }
 
+  logInfo('sync', 'Preparando sincronización con la configuración guardada.', {
+    localFolder: settings.localFolder,
+    intervalSeconds: settings.syncIntervalSeconds
+  });
+
   const password = await store.revealSecret(settings);
   const syncService = new CmisSyncService({
     cmisClient: createCmisClient(),
     localRoot: settings.localFolder,
-    logger: console
+    logger: createAppLogger('cmis')
   });
 
   return syncService.SyncAsync({
@@ -131,10 +139,13 @@ function showMainWindow() {
 function configureBackgroundSync(settings) {
   const intervalMs = (settings.syncIntervalSeconds ?? 60) * 1000;
   backgroundSyncWorker.setIntervalMs(intervalMs);
+  logInfo('config', `Intervalo de refresco configurado en ${settings.syncIntervalSeconds ?? 60} segundos.`);
 
   if (settings.runInBackground) {
+    logInfo('config', 'Sincronización en segundo plano habilitada.');
     backgroundSyncWorker.start();
   } else {
+    logInfo('config', 'Sincronización en segundo plano deshabilitada.');
     backgroundSyncWorker.pause();
   }
 
@@ -162,6 +173,7 @@ function registerIpc() {
   ipcMain.handle('settings:validate', (_event, draft) => validateSettings(draft));
 
   ipcMain.handle('settings:save', async (_event, draft) => {
+    logInfo('config', 'Guardando configuración de sincronización.');
     const saved = await store.save(draft);
     const syncStatus = configureBackgroundSync(saved);
     return {
@@ -185,10 +197,92 @@ function registerIpc() {
     return true;
   });
 
-  ipcMain.handle('sync:start', async () => backgroundSyncWorker.resume());
-  ipcMain.handle('sync:pause', async () => backgroundSyncWorker.pause());
-  ipcMain.handle('sync:force', async () => backgroundSyncWorker.forceSync('manual'));
+  ipcMain.handle('sync:start', async () => {
+    logInfo('sync', 'Reanudando sincronización desde la interfaz.');
+    return backgroundSyncWorker.resume();
+  });
+  ipcMain.handle('sync:pause', async () => {
+    logInfo('sync', 'Pausando sincronización desde la interfaz.');
+    return backgroundSyncWorker.pause();
+  });
+  ipcMain.handle('sync:force', async () => {
+    logInfo('sync', 'Sincronización manual solicitada.');
+    return backgroundSyncWorker.forceSync('manual');
+  });
   ipcMain.handle('sync:status', async () => backgroundSyncWorker.getStatus());
+  ipcMain.handle('logs:get', async () => getLogEntries());
+  ipcMain.handle('logs:clear', async () => {
+    clearLogEntries();
+    logInfo('app', 'Consola de log limpiada.');
+    return getLogEntries();
+  });
+}
+
+function createAppLogger(source) {
+  return {
+    info(message, details) {
+      logInfo(source, message, details);
+    },
+    warn(message, details) {
+      logEntry('warn', source, message, details);
+    },
+    error(message, details) {
+      logEntry('error', source, message, details);
+    }
+  };
+}
+
+function logInfo(source, message, details) {
+  logEntry('info', source, message, details);
+}
+
+function logEntry(level, source, message, details) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    source,
+    message: String(message),
+    details: serializeLogDetails(details)
+  };
+
+  logBuffer ??= [];
+  logBuffer.push(entry);
+  if (logBuffer.length > MAX_LOG_ENTRIES) {
+    logBuffer.splice(0, logBuffer.length - MAX_LOG_ENTRIES);
+  }
+
+  const consoleMethod = console[level] ?? console.log;
+  consoleMethod.call(console, `[${source}] ${message}`, details ?? '');
+  mainWindow?.webContents.send('logs:entry', entry);
+  return entry;
+}
+
+function serializeLogDetails(details) {
+  if (!details) {
+    return null;
+  }
+
+  if (details instanceof Error) {
+    return {
+      name: details.name,
+      message: details.message,
+      code: details.code ?? details.statusCode ?? details.status ?? null
+    };
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(details));
+  } catch {
+    return String(details);
+  }
+}
+
+function getLogEntries() {
+  return [...(logBuffer ?? [])];
+}
+
+function clearLogEntries() {
+  logBuffer = [];
 }
 
 function createTrayIconDataUrl() {
@@ -202,6 +296,8 @@ function createTrayIconDataUrl() {
 }
 
 app.whenReady().then(() => {
+  logBuffer = [];
+  logInfo('app', 'Aplicación iniciada.');
   store = createStore();
   backgroundSyncWorker = createBackgroundSyncWorker();
   registerIpc();

@@ -18,6 +18,24 @@ test('validateSettings rejects missing required wizard fields', () => {
   assert.deepEqual(result.errors.map((error) => error.field), ['cmisUrl', 'username', 'localFolder']);
 });
 
+test('normalizeSettings clamps the sync interval to the 10 to 60 second range', () => {
+  assert.equal(normalizeSettings({ syncIntervalSeconds: 5 }).syncIntervalSeconds, 10);
+  assert.equal(normalizeSettings({ syncIntervalSeconds: 90 }).syncIntervalSeconds, 60);
+});
+
+test('validateSettings accepts sync intervals from 10 seconds to 1 minute', () => {
+  const baseSettings = {
+    cmisUrl: 'https://example.test/cmis/browser',
+    username: 'ana',
+    localFolder: '/tmp/cmis'
+  };
+
+  assert.equal(validateSettings({ ...baseSettings, syncIntervalSeconds: 10 }).valid, true);
+  assert.equal(validateSettings({ ...baseSettings, syncIntervalSeconds: 60 }).valid, true);
+  assert.equal(validateSettings({ ...baseSettings, syncIntervalSeconds: 5 }).valid, false);
+  assert.equal(validateSettings({ ...baseSettings, syncIntervalSeconds: 61 }).valid, false);
+});
+
 test('validateSettings accepts a complete HTTP CMIS configuration', () => {
   const result = validateSettings({
     cmisUrl: 'https://example.test/cmis/browser',
@@ -68,3 +86,28 @@ test('SettingsStore persists configuration and delegates secrets to secure stora
     ['unprotect', 'protected:secret-token']
   ]);
 });
+
+test('SettingsStore rejects sync intervals outside the allowed range', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-portable-test-'));
+  const store = new SettingsStore({
+    settingsPath: path.join(tempDir, 'settings.json'),
+    secureStorage: {
+      async protect(value) {
+        return { value, storage: 'test-secure-storage' };
+      }
+    }
+  });
+
+  await assert.rejects(
+    () => store.save({
+      cmisUrl: 'https://example.test/cmis',
+      username: 'ana',
+      secretValue: 'secret-token',
+      localFolder: tempDir,
+      syncIntervalSeconds: 61,
+      runInBackground: true
+    }),
+    /entre 10 segundos y 1 minuto/
+  );
+});
+

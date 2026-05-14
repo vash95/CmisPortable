@@ -26,7 +26,7 @@ class SettingsStore {
 
   async save(plainSettings) {
     const protectedSecret = await this.secureStorage.protect(String(plainSettings.secretValue ?? ''));
-    const settings = normalizeSettings({
+    const validation = validateSettings({
       ...plainSettings,
       secret: {
         kind: plainSettings.secretKind ?? 'password',
@@ -34,7 +34,6 @@ class SettingsStore {
         storage: protectedSecret.storage
       }
     });
-    const validation = validateSettings(settings);
 
     if (!validation.valid) {
       const message = validation.errors.map((error) => `${error.field}: ${error.message}`).join('; ');
