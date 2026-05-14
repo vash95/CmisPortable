@@ -51,6 +51,18 @@ class SettingsStore {
     }
     return this.secureStorage.unprotect(settings.secret);
   }
+
+  async clear() {
+    try {
+      await fs.rm(this.settingsPath, { force: true });
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    return createDefaultSettings();
+  }
 }
 
 function createBase64FallbackSecureStorage() {

@@ -12,6 +12,7 @@ let tray;
 let store;
 let backgroundSyncWorker;
 let logBuffer;
+let shouldRunInBackgroundOnClose = true;
 
 const MAX_LOG_ENTRIES = 200;
 
@@ -84,10 +85,17 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'renderer.html'));
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('close', (event) => {
-    if (!app.isQuiting) {
+    if (app.isQuiting) {
+      return;
+    }
+
+    if (shouldRunInBackgroundOnClose) {
       event.preventDefault();
       mainWindow.hide();
+      return;
     }
+
+    app.isQuiting = true;
   });
 }
 
@@ -137,6 +145,7 @@ function showMainWindow() {
 }
 
 function configureBackgroundSync(settings) {
+  shouldRunInBackgroundOnClose = settings.runInBackground ?? true;
   const intervalMs = (settings.syncIntervalSeconds ?? 60) * 1000;
   backgroundSyncWorker.setIntervalMs(intervalMs);
   logInfo('config', `Intervalo de refresco configurado en ${settings.syncIntervalSeconds ?? 60} segundos.`);
@@ -162,7 +171,12 @@ function registerIpc() {
   ipcMain.handle('settings:load', async () => {
     const settings = await store.load();
     const secretValue = await store.revealSecret(settings);
-    configureBackgroundSync(settings);
+    if (hasStoredConnection(settings)) {
+      configureBackgroundSync(settings);
+    } else {
+      backgroundSyncWorker.stop();
+      shouldRunInBackgroundOnClose = settings.runInBackground ?? true;
+    }
     return {
       ...settings,
       secretValue,
@@ -183,6 +197,18 @@ function registerIpc() {
     };
   });
 
+  ipcMain.handle('settings:clear', async () => {
+    logInfo('config', 'Eliminando la conexión actual y sus credenciales almacenadas.');
+    backgroundSyncWorker.stop();
+    const settings = await store.clear();
+    shouldRunInBackgroundOnClose = settings.runInBackground;
+    return {
+      ...settings,
+      secretValue: '',
+      syncStatus: backgroundSyncWorker.getStatus()
+    };
+  });
+
   ipcMain.handle('folder:choose', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Seleccionar carpeta local de sincronización',
@@ -194,6 +220,13 @@ function registerIpc() {
 
   ipcMain.handle('window:minimizeToTray', () => {
     mainWindow?.hide();
+    return true;
+  });
+
+  ipcMain.handle('window:quit', () => {
+    logInfo('app', 'Cierre de aplicación solicitado desde la interfaz.');
+    app.isQuiting = true;
+    app.quit();
     return true;
   });
 
@@ -285,6 +318,24 @@ function clearLogEntries() {
   logBuffer = [];
 }
 
+function hasStoredConnection(settings) {
+  return Boolean(settings?.cmisUrl || settings?.username || settings?.localFolder || settings?.secret?.protectedValue);
+}
+
+async function loadStoredSettingsForStartup() {
+  try {
+    const settings = await store.load();
+    shouldRunInBackgroundOnClose = settings.runInBackground ?? true;
+
+    if (hasStoredConnection(settings)) {
+      configureBackgroundSync(settings);
+      logInfo('config', 'Credenciales y configuración almacenadas cargadas al iniciar.');
+    }
+  } catch (error) {
+    logEntry('error', 'config', 'No se pudieron cargar las credenciales almacenadas al iniciar.', error);
+  }
+}
+
 function createTrayIconDataUrl() {
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(`
     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
@@ -302,13 +353,19 @@ app.whenReady().then(() => {
   backgroundSyncWorker = createBackgroundSyncWorker();
   registerIpc();
   createTray();
+  loadStoredSettingsForStartup();
   createWindow();
 
   app.on('activate', showMainWindow);
 });
 
 app.on('window-all-closed', (event) => {
-  event.preventDefault();
+  if (shouldRunInBackgroundOnClose && !app.isQuiting) {
+    event.preventDefault();
+    return;
+  }
+
+  app.quit();
 });
 
 app.on('before-quit', () => {
