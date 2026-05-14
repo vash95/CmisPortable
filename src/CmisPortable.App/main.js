@@ -18,6 +18,7 @@ let appLocale = 'en';
 
 const MAX_LOG_ENTRIES = 200;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
+const appLogoPath = path.join(__dirname, 'assets', 'logo.svg');
 
 
 const mainTranslations = {
@@ -133,6 +134,7 @@ function createWindow() {
     minWidth: 760,
     minHeight: 620,
     title: 'CmisPortable',
+    icon: nativeImage.createFromPath(appLogoPath),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -163,7 +165,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromDataURL(createTrayIconDataUrl());
+  const icon = nativeImage.createFromPath(appLogoPath);
   tray = new Tray(icon);
   tray.setToolTip('CmisPortable');
   updateTrayMenu();
@@ -407,15 +409,6 @@ async function loadStoredSettingsForStartup() {
   }
 }
 
-function createTrayIconDataUrl() {
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-      <rect width="32" height="32" rx="8" fill="#2563eb"/>
-      <path d="M8 11h16v3H8zm0 7h11v3H8z" fill="white"/>
-      <circle cx="23" cy="20" r="3" fill="#93c5fd"/>
-    </svg>
-  `);
-}
 
 if (!hasSingleInstanceLock) {
   app.quit();
