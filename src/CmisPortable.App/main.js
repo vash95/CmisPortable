@@ -2,12 +2,15 @@ const path = require('node:path');
 const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, nativeImage, safeStorage } = require('electron');
 const { SettingsStore } = require('../CmisPortable.Core/settingsStore');
 const { validateSettings } = require('../CmisPortable.Core/configuration');
+const { CmisSyncService } = require('../CmisPortable.Core/cmisSyncService');
+const { ICmisClient } = require('../CmisPortable.Core/cmisClient');
+const { BackgroundSyncWorker } = require('../CmisPortable.Core/backgroundSyncWorker');
 const { createElectronSecureStorage } = require('./secureStorage');
 
 let mainWindow;
 let tray;
 let store;
-let syncTimer;
+let backgroundSyncWorker;
 
 function createStore() {
   return new SettingsStore({
@@ -16,12 +19,51 @@ function createStore() {
   });
 }
 
+function createBackgroundSyncWorker() {
+  const worker = new BackgroundSyncWorker({
+    syncNow: runConfiguredSync,
+    logger: console
+  });
+
+  worker.on('status', (status) => {
+    mainWindow?.webContents.send('sync:status', status);
+    updateTrayMenu();
+  });
+
+  return worker;
+}
+
+async function runConfiguredSync() {
+  const settings = await store.load();
+  const validation = validateSettings(settings);
+  if (!validation.valid) {
+    throw new Error(validation.errors.map((error) => error.message).join(' '));
+  }
+
+  const password = await store.revealSecret(settings);
+  const syncService = new CmisSyncService({
+    cmisClient: createCmisClient(),
+    localRoot: settings.localFolder,
+    logger: console
+  });
+
+  return syncService.SyncAsync({
+    url: settings.cmisUrl,
+    username: settings.username,
+    password
+  });
+}
+
+function createCmisClient() {
+  return new ICmisClient();
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 880,
-    height: 680,
+    height: 760,
     minWidth: 760,
-    minHeight: 560,
+    minHeight: 620,
     title: 'CmisPortable',
     show: false,
     webPreferences: {
@@ -45,8 +87,28 @@ function createTray() {
   const icon = nativeImage.createFromDataURL(createTrayIconDataUrl());
   tray = new Tray(icon);
   tray.setToolTip('CmisPortable');
+  updateTrayMenu();
+  tray.on('double-click', showMainWindow);
+}
+
+function updateTrayMenu() {
+  if (!tray) {
+    return;
+  }
+
+  const status = backgroundSyncWorker?.getStatus();
+  const isPaused = status?.paused ?? true;
+
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Abrir CmisPortable', click: showMainWindow },
+    { label: 'Abrir configuración', click: showMainWindow },
+    {
+      label: 'Sincronizar ahora',
+      click: () => backgroundSyncWorker?.forceSync('tray')
+    },
+    {
+      label: isPaused ? 'Reanudar sincronización' : 'Pausar sincronización',
+      click: () => toggleBackgroundSync()
+    },
     { type: 'separator' },
     {
       label: 'Salir',
@@ -56,7 +118,6 @@ function createTray() {
       }
     }
   ]));
-  tray.on('double-click', showMainWindow);
 }
 
 function showMainWindow() {
@@ -68,18 +129,22 @@ function showMainWindow() {
 }
 
 function configureBackgroundSync(settings) {
-  if (syncTimer) {
-    clearInterval(syncTimer);
+  const intervalMs = (settings.syncIntervalSeconds ?? 60) * 1000;
+  backgroundSyncWorker.setIntervalMs(intervalMs);
+
+  if (settings.runInBackground) {
+    backgroundSyncWorker.start();
+  } else {
+    backgroundSyncWorker.pause();
   }
 
-  const intervalMs = settings.syncIntervalSeconds * 1000;
-  syncTimer = setInterval(() => {
-    mainWindow?.webContents.send('sync:tick', {
-      timestamp: new Date().toISOString(),
-      cmisUrl: settings.cmisUrl,
-      localFolder: settings.localFolder
-    });
-  }, intervalMs);
+  updateTrayMenu();
+  return backgroundSyncWorker.getStatus();
+}
+
+function toggleBackgroundSync() {
+  const status = backgroundSyncWorker.getStatus();
+  return status.paused ? backgroundSyncWorker.resume() : backgroundSyncWorker.pause();
 }
 
 function registerIpc() {
@@ -89,7 +154,8 @@ function registerIpc() {
     configureBackgroundSync(settings);
     return {
       ...settings,
-      secretValue
+      secretValue,
+      syncStatus: backgroundSyncWorker.getStatus()
     };
   });
 
@@ -97,8 +163,12 @@ function registerIpc() {
 
   ipcMain.handle('settings:save', async (_event, draft) => {
     const saved = await store.save(draft);
-    configureBackgroundSync(saved);
-    return saved;
+    const syncStatus = configureBackgroundSync(saved);
+    return {
+      ...saved,
+      secretValue: draft.secretValue ?? '',
+      syncStatus
+    };
   });
 
   ipcMain.handle('folder:choose', async () => {
@@ -114,6 +184,11 @@ function registerIpc() {
     mainWindow?.hide();
     return true;
   });
+
+  ipcMain.handle('sync:start', async () => backgroundSyncWorker.resume());
+  ipcMain.handle('sync:pause', async () => backgroundSyncWorker.pause());
+  ipcMain.handle('sync:force', async () => backgroundSyncWorker.forceSync('manual'));
+  ipcMain.handle('sync:status', async () => backgroundSyncWorker.getStatus());
 }
 
 function createTrayIconDataUrl() {
@@ -128,6 +203,7 @@ function createTrayIconDataUrl() {
 
 app.whenReady().then(() => {
   store = createStore();
+  backgroundSyncWorker = createBackgroundSyncWorker();
   registerIpc();
   createTray();
   createWindow();
@@ -141,4 +217,5 @@ app.on('window-all-closed', (event) => {
 
 app.on('before-quit', () => {
   app.isQuiting = true;
+  backgroundSyncWorker?.stop();
 });

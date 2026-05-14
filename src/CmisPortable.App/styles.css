@@ -129,3 +129,68 @@ button:hover { background: var(--primary-strong); }
   .hero, .grid { grid-template-columns: 1fr; display: grid; }
   .folder-row { grid-template-columns: 1fr; }
 }
+
+.status-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.badge {
+  border: 1px solid #60a5fa;
+  border-radius: 999px;
+  color: #bfdbfe;
+  font-size: .85rem;
+  font-weight: 800;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.badge[data-state="success"] {
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.badge[data-state="error"] {
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.badge[data-state="running"] {
+  border-color: #f59e0b;
+  color: #fcd34d;
+}
+
+.sync-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0 0;
+}
+
+.sync-metrics div {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.sync-metrics dt {
+  color: var(--muted);
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.sync-metrics dd {
+  font-size: 2rem;
+  font-weight: 900;
+  margin: 4px 0 0;
+}
+
+.sync-actions {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .status-header, .sync-metrics { grid-template-columns: 1fr; display: grid; }
+}

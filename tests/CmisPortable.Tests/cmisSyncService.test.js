@@ -31,6 +31,9 @@ test('CmisSyncService creates folders, downloads documents and writes the index'
   const result = await service.sync({ url: 'https://example.test/cmis', username: 'ana', password: 'secret' });
 
   assert.equal(result.errors.length, 0);
+  assert.equal(result.downloaded, 1);
+  assert.equal(result.updated, 0);
+  assert.equal(result.deleted, 0);
   assert.equal(await fs.readFile(path.join(tempDir, 'Projects', 'readme.txt'), 'utf8'), 'hello cmis!');
 
   const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
@@ -61,6 +64,9 @@ test('CmisSyncService updates modified documents and removes items missing from 
   const result = await service.sync({ url: 'https://example.test/cmis', username: 'ana', password: 'secret' });
 
   assert.equal(result.errors.length, 0);
+  assert.equal(result.downloaded, 0);
+  assert.equal(result.updated, 1);
+  assert.equal(result.deleted, 1);
   assert.equal(await fs.readFile(path.join(tempDir, 'manual.txt'), 'utf8'), 'two');
   await assert.rejects(() => fs.access(path.join(tempDir, 'obsolete.txt')), /ENOENT/);
 });

@@ -33,6 +33,10 @@ class CmisSyncService {
    * Los cambios locales dentro del espejo pueden ser reemplazados o eliminados si
    * difieren del estado remoto o si el objeto remoto ya no existe.
    */
+  async SyncAsync(credentials) {
+    return this.sync(credentials);
+  }
+
   async sync({ url, username, password }) {
     const startedAt = new Date().toISOString();
     await fs.mkdir(this.localRoot, { recursive: true });
@@ -40,6 +44,7 @@ class CmisSyncService {
     const previousIndex = await this.loadIndex();
     const nextEntries = new Map();
     const errors = [];
+    const stats = { downloaded: 0, deleted: 0, updated: 0 };
 
     await this.withRetry(
       () => this.withTimeout(this.cmisClient.ConnectAsync(url, username, password), 'ConnectAsync'),
@@ -57,10 +62,11 @@ class CmisSyncService {
       localPath: this.localRoot,
       previousIndex,
       nextEntries,
-      errors
+      errors,
+      stats
     });
 
-    await this.removeMissingLocalItems(previousIndex, nextEntries, errors);
+    await this.removeMissingLocalItems(previousIndex, nextEntries, errors, stats);
 
     const index = {
       version: 1,
@@ -77,11 +83,13 @@ class CmisSyncService {
     return {
       syncedAt: index.updatedAt,
       entries: index.entries.length,
-      errors
+      errors,
+      ...stats,
+      stats
     };
   }
 
-  async syncFolder({ folder, remotePath, localPath, previousIndex, nextEntries, errors }) {
+  async syncFolder({ folder, remotePath, localPath, previousIndex, nextEntries, errors, stats }) {
     const folderId = getObjectId(folder);
     if (!folderId) {
       throw new Error(`CMIS folder at ${remotePath} does not include an id.`);
@@ -124,7 +132,8 @@ class CmisSyncService {
             localPath: childLocalPath,
             previousIndex,
             nextEntries,
-            errors
+            errors,
+            stats
           });
         } catch (error) {
           this.recordError(errors, childRemotePath, childId, error, 'folder');
@@ -139,7 +148,8 @@ class CmisSyncService {
             remotePath: childRemotePath,
             localPath: childLocalPath,
             previousIndex,
-            nextEntries
+            nextEntries,
+            stats
           });
         } catch (error) {
           this.recordError(errors, childRemotePath, childId, error, 'download');
@@ -151,14 +161,16 @@ class CmisSyncService {
     }
   }
 
-  async syncDocument({ document, remotePath, localPath, previousIndex, nextEntries }) {
+  async syncDocument({ document, remotePath, localPath, previousIndex, nextEntries, stats }) {
     const documentId = getObjectId(document);
     const previousEntry = previousIndex.entriesById.get(documentId);
     const remoteFingerprint = getRemoteFingerprint(document);
 
     await fs.mkdir(path.dirname(localPath), { recursive: true });
 
-    if (!(await this.shouldDownload({ previousEntry, localPath, remoteFingerprint }))) {
+    const downloadDecision = await this.shouldDownload({ previousEntry, localPath, remoteFingerprint });
+
+    if (!downloadDecision.download) {
       nextEntries.set(documentId, {
         ...previousEntry,
         remotePath,
@@ -166,6 +178,12 @@ class CmisSyncService {
         seenAt: new Date().toISOString()
       });
       return;
+    }
+
+    if (previousEntry && downloadDecision.existingFile) {
+      stats.updated += 1;
+    } else {
+      stats.downloaded += 1;
     }
 
     const tempPath = `${localPath}.cmisportable-download-${process.pid}-${Date.now()}`;
@@ -190,27 +208,27 @@ class CmisSyncService {
 
   async shouldDownload({ previousEntry, localPath, remoteFingerprint }) {
     if (!previousEntry) {
-      return true;
+      return { download: true, existingFile: false };
     }
 
     const exists = await pathExists(localPath);
     if (!exists) {
-      return true;
+      return { download: true, existingFile: false };
     }
 
     if (remoteFingerprint.lastModified && previousEntry.lastModified !== remoteFingerprint.lastModified) {
-      return true;
+      return { download: true, existingFile: true };
     }
 
     if (remoteFingerprint.hash && previousEntry.hash !== remoteFingerprint.hash) {
-      return true;
+      return { download: true, existingFile: true };
     }
 
     if (remoteFingerprint.size != null && previousEntry.size !== remoteFingerprint.size) {
-      return true;
+      return { download: true, existingFile: true };
     }
 
-    return false;
+    return { download: false, existingFile: true };
   }
 
   preservePreviousSubtree(previousIndex, nextEntries, remotePath) {
@@ -225,7 +243,7 @@ class CmisSyncService {
     }
   }
 
-  async removeMissingLocalItems(previousIndex, nextEntries, errors) {
+  async removeMissingLocalItems(previousIndex, nextEntries, errors, stats) {
     const missingEntries = Array.from(previousIndex.entriesById.values())
       .filter((entry) => !nextEntries.has(entry.cmisObjectId))
       .sort((a, b) => b.localPath.localeCompare(a.localPath));
@@ -238,6 +256,9 @@ class CmisSyncService {
 
       try {
         await fs.rm(localPath, { recursive: true, force: true });
+        if (entry.kind === 'document') {
+          stats.deleted += 1;
+        }
       } catch (error) {
         this.recordError(errors, entry.remotePath, entry.cmisObjectId, error, 'delete');
       }
@@ -403,7 +424,7 @@ async function pathExists(targetPath) {
     return true;
   } catch (error) {
     if (error.code === 'ENOENT') {
-      return false;
+      return { download: false, existingFile: true };
     }
     throw error;
   }
