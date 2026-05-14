@@ -6,5 +6,9 @@ contextBridge.exposeInMainWorld('cmisPortable', {
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   chooseFolder: () => ipcRenderer.invoke('folder:choose'),
   minimizeToTray: () => ipcRenderer.invoke('window:minimizeToTray'),
-  onSyncTick: (callback) => ipcRenderer.on('sync:tick', (_event, payload) => callback(payload))
+  startSync: () => ipcRenderer.invoke('sync:start'),
+  pauseSync: () => ipcRenderer.invoke('sync:pause'),
+  forceSync: () => ipcRenderer.invoke('sync:force'),
+  getSyncStatus: () => ipcRenderer.invoke('sync:status'),
+  onSyncStatus: (callback) => ipcRenderer.on('sync:status', (_event, payload) => callback(payload))
 });

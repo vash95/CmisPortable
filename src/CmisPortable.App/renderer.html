@@ -70,8 +70,35 @@
       </form>
 
       <section class="status card">
-        <h2>Estado</h2>
-        <p id="syncStatus">Esperando configuración guardada.</p>
+        <div class="status-header">
+          <div>
+            <h2>Estado de sincronización</h2>
+            <p id="syncStatus">Esperando configuración guardada.</p>
+          </div>
+          <span id="syncBadge" class="badge">Sin iniciar</span>
+        </div>
+
+        <dl class="sync-metrics" aria-label="Último resultado de sincronización">
+          <div>
+            <dt>Descargados</dt>
+            <dd id="filesDownloaded">0</dd>
+          </div>
+          <div>
+            <dt>Actualizados</dt>
+            <dd id="filesUpdated">0</dd>
+          </div>
+          <div>
+            <dt>Eliminados</dt>
+            <dd id="filesDeleted">0</dd>
+          </div>
+        </dl>
+
+        <footer class="actions sync-actions">
+          <button id="startSync" class="primary" type="button">Iniciar sincronización</button>
+          <button id="pauseSync" class="secondary" type="button">Pausar sincronización</button>
+          <button id="forceSync" class="secondary" type="button">Sincronizar ahora</button>
+          <button id="refreshSyncStatus" class="ghost" type="button">Ver último estado</button>
+        </footer>
       </section>
     </main>
     <script src="renderer.js"></script>

@@ -1,6 +1,7 @@
 const form = document.querySelector('#settingsForm');
 const messages = document.querySelector('#messages');
 const syncStatus = document.querySelector('#syncStatus');
+const syncBadge = document.querySelector('#syncBadge');
 
 const fields = {
   cmisUrl: document.querySelector('#cmisUrl'),
@@ -10,6 +11,12 @@ const fields = {
   localFolder: document.querySelector('#localFolder'),
   syncIntervalSeconds: document.querySelector('#syncIntervalSeconds'),
   runInBackground: document.querySelector('#runInBackground')
+};
+
+const metrics = {
+  downloaded: document.querySelector('#filesDownloaded'),
+  updated: document.querySelector('#filesUpdated'),
+  deleted: document.querySelector('#filesDeleted')
 };
 
 function collectSettings() {
@@ -32,6 +39,10 @@ function applySettings(settings) {
   fields.localFolder.value = settings.localFolder ?? '';
   fields.syncIntervalSeconds.value = settings.syncIntervalSeconds ?? 60;
   fields.runInBackground.checked = settings.runInBackground ?? true;
+
+  if (settings.syncStatus) {
+    renderSyncStatus(settings.syncStatus);
+  }
 }
 
 function showMessage(text, success = false) {
@@ -50,6 +61,47 @@ async function validateDraft() {
   return false;
 }
 
+function renderSyncStatus(status = {}) {
+  const result = status.result ?? {};
+  const updatedAt = status.updatedAt ? new Date(status.updatedAt).toLocaleString() : 'sin fecha';
+  const lastSuccess = status.lastSuccessAt ? new Date(status.lastSuccessAt).toLocaleString() : 'sin sincronizaciones exitosas';
+  const intervalSeconds = Math.round((status.intervalMs ?? 60_000) / 1000);
+
+  syncBadge.textContent = getStateLabel(status.state, status.paused);
+  syncBadge.dataset.state = status.state ?? 'idle';
+  syncStatus.textContent = `${status.message ?? 'Sin estado disponible'} Última actualización: ${updatedAt}. Último éxito: ${lastSuccess}. Intervalo: ${intervalSeconds} segundos.`;
+  metrics.downloaded.textContent = result.downloaded ?? 0;
+  metrics.updated.textContent = result.updated ?? 0;
+  metrics.deleted.textContent = result.deleted ?? 0;
+}
+
+function getStateLabel(state, paused) {
+  if (paused) {
+    return 'Pausada';
+  }
+
+  const labels = {
+    idle: 'Sin iniciar',
+    scheduled: 'Programada',
+    running: 'En curso',
+    success: 'Correcta',
+    error: 'Error',
+    skipped: 'Omitida',
+    stopped: 'Detenida'
+  };
+  return labels[state] ?? 'Desconocida';
+}
+
+async function runSyncAction(action, successMessage) {
+  try {
+    const status = await action();
+    renderSyncStatus(status);
+    showMessage(successMessage, true);
+  } catch (error) {
+    showMessage(`No se pudo actualizar la sincronización: ${error.message}`);
+  }
+}
+
 document.querySelector('#chooseFolder').addEventListener('click', async () => {
   const folder = await window.cmisPortable.chooseFolder();
   if (folder) {
@@ -63,6 +115,22 @@ document.querySelector('#minimizeToTray').addEventListener('click', () => {
   window.cmisPortable.minimizeToTray();
 });
 
+document.querySelector('#startSync').addEventListener('click', () => {
+  runSyncAction(() => window.cmisPortable.startSync(), 'Sincronización en segundo plano iniciada.');
+});
+
+document.querySelector('#pauseSync').addEventListener('click', () => {
+  runSyncAction(() => window.cmisPortable.pauseSync(), 'Sincronización en segundo plano pausada.');
+});
+
+document.querySelector('#forceSync').addEventListener('click', () => {
+  runSyncAction(() => window.cmisPortable.forceSync(), 'Sincronización manual ejecutada.');
+});
+
+document.querySelector('#refreshSyncStatus').addEventListener('click', () => {
+  runSyncAction(() => window.cmisPortable.getSyncStatus(), 'Último estado actualizado.');
+});
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const isValid = await validateDraft();
@@ -70,13 +138,12 @@ form.addEventListener('submit', async (event) => {
     return;
   }
 
-  await window.cmisPortable.saveSettings(collectSettings());
+  const saved = await window.cmisPortable.saveSettings(collectSettings());
+  applySettings(saved);
   showMessage('Configuración guardada. La sincronización en segundo plano está programada.', true);
 });
 
-window.cmisPortable.onSyncTick((payload) => {
-  syncStatus.textContent = `Última comprobación: ${payload.timestamp}. Servidor: ${payload.cmisUrl}. Carpeta: ${payload.localFolder}.`;
-});
+window.cmisPortable.onSyncStatus(renderSyncStatus);
 
 window.cmisPortable.loadSettings()
   .then((settings) => {
