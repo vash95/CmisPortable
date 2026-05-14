@@ -7,109 +7,148 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
-        <div class="hero-brand">
-          <img class="app-logo" src="assets/logo.svg" alt="CmisPortable 2 squared cube logo">
-          <div>
-            <p class="eyebrow" data-i18n="hero.eyebrow">Setup wizard</p>
-            <h1 data-i18n="hero.title">Configure your CMIS sync</h1>
-            <p data-i18n="hero.description">Define the server, credentials, and local folder. The application can keep running in the system tray.</p>
+    <main class="shell app-layout">
+      <div class="main-column">
+        <section class="hero">
+          <div class="hero-brand">
+            <img class="app-logo" src="assets/logo.svg" alt="CmisPortable 2 squared cube logo">
+            <div>
+              <p class="eyebrow" data-i18n="hero.eyebrow">Step-by-step wizard</p>
+              <h1 data-i18n="hero.title">Configure your CMIS sync</h1>
+              <p data-i18n="hero.description">Connect, choose the source folder, set the local path, and review activity logs while the app runs.</p>
+            </div>
           </div>
-        </div>
-        <div class="hero-actions">
-          <button id="minimizeToTray" class="ghost" type="button" data-i18n="action.minimizeToTray">Minimize to tray</button>
-          <button id="quitApp" class="secondary danger" type="button" data-i18n="action.quitApp">Close application</button>
-        </div>
-      </section>
-
-      <form id="settingsForm" class="card" novalidate>
-        <label>
-          <span data-i18n="field.cmisUrl">CMIS URL</span>
-          <input id="cmisUrl" name="cmisUrl" type="url" placeholder="https://server/cmis/browser" data-i18n-placeholder="placeholder.cmisUrl" required>
-        </label>
-
-        <div class="grid">
-          <label>
-            <span data-i18n="field.username">Username</span>
-            <input id="username" name="username" autocomplete="username" required>
-          </label>
-          <label>
-            <span data-i18n="field.secretKind">Secret type</span>
-            <select id="secretKind" name="secretKind">
-              <option value="password" data-i18n="secretKind.password">Password</option>
-              <option value="token" data-i18n="secretKind.token">Token</option>
-            </select>
-          </label>
-        </div>
-
-        <label>
-          <span data-i18n="field.secretValue">Password or token</span>
-          <input id="secretValue" name="secretValue" type="password" autocomplete="current-password">
-        </label>
-
-        <label>
-          <span data-i18n="field.localFolder">Local sync folder</span>
-          <div class="folder-row">
-            <input id="localFolder" name="localFolder" placeholder="/path/to/folder" data-i18n-placeholder="placeholder.localFolder" required>
-            <button id="chooseFolder" type="button" data-i18n="action.chooseFolder">Choose…</button>
+          <div class="hero-actions">
+            <button id="minimizeToTray" class="ghost" type="button" data-i18n="action.minimizeToTray">Minimize to tray</button>
+            <button id="quitApp" class="secondary danger" type="button" data-i18n="action.quitApp">Close application</button>
           </div>
-        </label>
+        </section>
 
-        <div class="grid">
-          <label>
-            <span data-i18n="field.syncInterval">Sync interval (10 to 60 seconds)</span>
-            <input id="syncIntervalSeconds" name="syncIntervalSeconds" type="range" min="10" max="60" step="5" value="60" required>
-            <output id="syncIntervalLabel" for="syncIntervalSeconds">60 seconds</output>
-          </label>
-          <label class="check">
-            <input id="runInBackground" name="runInBackground" type="checkbox" checked>
-            <span data-i18n="field.runInBackground">Keep running in the background when the window is closed</span>
-          </label>
-        </div>
+        <form id="settingsForm" class="card wizard" novalidate>
+          <nav class="stepper" aria-label="Setup steps" data-i18n-aria-label="wizard.stepsLabel">
+            <button class="step-tab active" type="button" data-step-target="connection"><span>1</span><strong data-i18n="wizard.step.connection">Connection</strong></button>
+            <button class="step-tab" type="button" data-step-target="folders"><span>2</span><strong data-i18n="wizard.step.folders">Source and path</strong></button>
+            <button class="step-tab" type="button" data-step-target="schedule"><span>3</span><strong data-i18n="wizard.step.schedule">Sync time</strong></button>
+            <button class="step-tab" type="button" data-step-target="manage"><span>4</span><strong data-i18n="wizard.step.manage">Manage</strong></button>
+          </nav>
 
-        <div id="messages" class="messages" role="status" aria-live="polite"></div>
+          <div id="messages" class="messages" role="status" aria-live="polite"></div>
 
-        <footer class="actions">
-          <button id="clearConnection" class="secondary danger" type="button" data-i18n="action.clearConnection">Remove current connection</button>
-          <button id="validate" class="secondary" type="button" data-i18n="action.validate">Validate</button>
-          <button class="primary" type="submit" data-i18n="action.saveConnection">Save new connection</button>
-        </footer>
-      </form>
+          <section class="wizard-step active" data-step="connection">
+            <h2 data-i18n="wizard.connection.title">1. Connection</h2>
+            <p data-i18n="wizard.connection.description">Enter the CMIS server and credentials first. Use Validate connection before choosing folders.</p>
+            <label>
+              <span data-i18n="field.cmisUrl">CMIS URL</span>
+              <input id="cmisUrl" name="cmisUrl" type="url" placeholder="https://server/cmis/browser" data-i18n-placeholder="placeholder.cmisUrl" required>
+            </label>
+            <div class="grid">
+              <label>
+                <span data-i18n="field.username">Username</span>
+                <input id="username" name="username" autocomplete="username" required>
+              </label>
+              <label>
+                <span data-i18n="field.secretKind">Secret type</span>
+                <select id="secretKind" name="secretKind">
+                  <option value="password" data-i18n="secretKind.password">Password</option>
+                  <option value="token" data-i18n="secretKind.token">Token</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span data-i18n="field.secretValue">Password or token</span>
+              <input id="secretValue" name="secretValue" type="password" autocomplete="current-password">
+            </label>
+            <footer class="actions">
+              <button id="validate" class="secondary" type="button" data-i18n="action.validateConnection">Validate connection</button>
+              <button class="primary" type="button" data-next-step="folders" data-i18n="action.nextFolders">Next: source folders</button>
+            </footer>
+          </section>
 
-      <section class="status card">
-        <div class="status-header">
-          <div>
-            <h2 data-i18n="sync.title">Sync status</h2>
-            <p id="syncStatus" data-i18n="sync.waiting">Waiting for saved configuration.</p>
+          <section class="wizard-step" data-step="folders">
+            <h2 data-i18n="wizard.folders.title">2. Source folder and local path</h2>
+            <p data-i18n="wizard.folders.description">Load the CMIS source folders, pick where synchronization should start, then choose the local destination.</p>
+            <div class="remote-browser">
+              <div class="selected-source">
+                <span data-i18n="field.remoteFolder">CMIS source folder</span>
+                <strong id="remoteFolderLabel">/</strong>
+                <input id="remoteFolderId" name="remoteFolderId" type="hidden">
+                <input id="remoteFolderPath" name="remoteFolderPath" type="hidden" value="/">
+                <input id="remoteFolderName" name="remoteFolderName" type="hidden" value="/">
+              </div>
+              <div class="actions compact-actions">
+                <button id="loadRemoteFolders" class="secondary" type="button" data-i18n="action.loadRemoteFolders">Show source folders</button>
+                <button id="selectRemoteRoot" class="ghost" type="button" data-i18n="action.selectRemoteRoot">Use repository root</button>
+                <button id="remoteFolderUp" class="ghost" type="button" data-i18n="action.remoteUp">Back</button>
+              </div>
+              <ol id="remoteFolderList" class="folder-list" aria-live="polite" aria-label="CMIS source folders" data-i18n-aria-label="field.remoteFolder"></ol>
+            </div>
+            <label>
+              <span data-i18n="field.localFolder">Local sync folder</span>
+              <div class="folder-row">
+                <input id="localFolder" name="localFolder" placeholder="/path/to/folder" data-i18n-placeholder="placeholder.localFolder" required>
+                <button id="chooseFolder" type="button" data-i18n="action.chooseFolder">Choose…</button>
+              </div>
+            </label>
+            <footer class="actions">
+              <button class="ghost" type="button" data-next-step="connection" data-i18n="action.backConnection">Back: connection</button>
+              <button class="primary" type="button" data-next-step="schedule" data-i18n="action.nextSchedule">Next: sync time</button>
+            </footer>
+          </section>
+
+          <section class="wizard-step" data-step="schedule">
+            <h2 data-i18n="wizard.schedule.title">3. Synchronization time</h2>
+            <p data-i18n="wizard.schedule.description">Choose how often the app checks CMIS and whether it keeps running in the background.</p>
+            <div class="grid">
+              <label>
+                <span data-i18n="field.syncInterval">Sync interval (10 to 60 seconds)</span>
+                <input id="syncIntervalSeconds" name="syncIntervalSeconds" type="range" min="10" max="60" step="5" value="60" required>
+                <output id="syncIntervalLabel" for="syncIntervalSeconds">60 seconds</output>
+              </label>
+              <label class="check">
+                <input id="runInBackground" name="runInBackground" type="checkbox" checked>
+                <span data-i18n="field.runInBackground">Keep running in the background when the window is closed</span>
+              </label>
+            </div>
+            <footer class="actions">
+              <button class="ghost" type="button" data-next-step="folders" data-i18n="action.backFolders">Back: source and path</button>
+              <button class="primary" type="button" data-next-step="manage" data-i18n="action.nextManage">Next: add or delete</button>
+            </footer>
+          </section>
+
+          <section class="wizard-step" data-step="manage">
+            <h2 data-i18n="wizard.manage.title">4. Add a new option or delete the current one</h2>
+            <p data-i18n="wizard.manage.description">Save this setup as the active sync option, or remove the current connection and start over.</p>
+            <footer class="actions">
+              <button class="ghost" type="button" data-next-step="schedule" data-i18n="action.backSchedule">Back: sync time</button>
+              <button id="clearConnection" class="secondary danger" type="button" data-i18n="action.clearConnection">Remove current connection</button>
+              <button class="primary" type="submit" data-i18n="action.saveConnection">Save new connection</button>
+            </footer>
+          </section>
+        </form>
+
+        <section class="status card">
+          <div class="status-header">
+            <div>
+              <h2 data-i18n="sync.title">Sync status</h2>
+              <p id="syncStatus" data-i18n="sync.waiting">Waiting for saved configuration.</p>
+            </div>
+            <span id="syncBadge" class="badge" data-i18n="state.idle">Not started</span>
           </div>
-          <span id="syncBadge" class="badge" data-i18n="state.idle">Not started</span>
-        </div>
+          <dl class="sync-metrics" aria-label="Last sync result" data-i18n-aria-label="sync.metricsLabel">
+            <div><dt data-i18n="metric.downloaded">Downloaded</dt><dd id="filesDownloaded">0</dd></div>
+            <div><dt data-i18n="metric.updated">Updated</dt><dd id="filesUpdated">0</dd></div>
+            <div><dt data-i18n="metric.deleted">Deleted</dt><dd id="filesDeleted">0</dd></div>
+          </dl>
+          <footer class="actions sync-actions">
+            <button id="startSync" class="primary" type="button" data-i18n="action.startSync">Start sync</button>
+            <button id="pauseSync" class="secondary" type="button" data-i18n="action.pauseSync">Pause sync</button>
+            <button id="forceSync" class="secondary" type="button" data-i18n="action.forceSync">Sync now</button>
+            <button id="refreshSyncStatus" class="ghost" type="button" data-i18n="action.refreshStatus">View latest status</button>
+          </footer>
+        </section>
+      </div>
 
-        <dl class="sync-metrics" aria-label="Last sync result" data-i18n-aria-label="sync.metricsLabel">
-          <div>
-            <dt data-i18n="metric.downloaded">Downloaded</dt>
-            <dd id="filesDownloaded">0</dd>
-          </div>
-          <div>
-            <dt data-i18n="metric.updated">Updated</dt>
-            <dd id="filesUpdated">0</dd>
-          </div>
-          <div>
-            <dt data-i18n="metric.deleted">Deleted</dt>
-            <dd id="filesDeleted">0</dd>
-          </div>
-        </dl>
-
-        <footer class="actions sync-actions">
-          <button id="startSync" class="primary" type="button" data-i18n="action.startSync">Start sync</button>
-          <button id="pauseSync" class="secondary" type="button" data-i18n="action.pauseSync">Pause sync</button>
-          <button id="forceSync" class="secondary" type="button" data-i18n="action.forceSync">Sync now</button>
-          <button id="refreshSyncStatus" class="ghost" type="button" data-i18n="action.refreshStatus">View latest status</button>
-        </footer>
-      </section>
-
-      <section class="log-console card" aria-labelledby="logConsoleTitle">
+      <aside class="log-console card corner-log" aria-labelledby="logConsoleTitle">
         <div class="log-header">
           <div>
             <h2 id="logConsoleTitle" data-i18n="log.title">Log console</h2>
@@ -118,7 +157,7 @@
           <button id="clearLogs" class="ghost" type="button" data-i18n="action.clearLogs">Clear log</button>
         </div>
         <ol id="logEntries" class="log-entries" aria-live="polite" aria-label="Application events" data-i18n-aria-label="log.eventsLabel"></ol>
-      </section>
+      </aside>
     </main>
     <script src="renderer.js"></script>
   </body>

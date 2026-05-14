@@ -2,9 +2,9 @@ let currentLocale = 'en';
 
 const translations = {
   en: {
-    'hero.eyebrow': 'Setup wizard',
+    'hero.eyebrow': 'Step-by-step wizard',
     'hero.title': 'Configure your CMIS sync',
-    'hero.description': 'Define the server, credentials, and local folder. The application can keep running in the system tray.',
+    'hero.description': 'Connect, choose the source folder, set the local path, and review activity logs while the app runs.',
     'action.minimizeToTray': 'Minimize to tray',
     'action.quitApp': 'Close application',
     'field.cmisUrl': 'CMIS URL',
@@ -15,12 +15,23 @@ const translations = {
     'secretKind.token': 'Token',
     'field.secretValue': 'Password or token',
     'field.localFolder': 'Local sync folder',
+    'field.remoteFolder': 'CMIS source folder',
     'placeholder.localFolder': '/path/to/folder',
     'action.chooseFolder': 'Choose…',
     'field.syncInterval': 'Sync interval (10 to 60 seconds)',
     'field.runInBackground': 'Keep running in the background when the window is closed',
     'action.clearConnection': 'Remove current connection',
     'action.validate': 'Validate',
+    'action.validateConnection': 'Validate connection',
+    'action.nextFolders': 'Next: source folders',
+    'action.backConnection': 'Back: connection',
+    'action.nextSchedule': 'Next: sync time',
+    'action.backFolders': 'Back: source and path',
+    'action.nextManage': 'Next: add or delete',
+    'action.backSchedule': 'Back: sync time',
+    'action.loadRemoteFolders': 'Show source folders',
+    'action.selectRemoteRoot': 'Use repository root',
+    'action.remoteUp': 'Back',
     'action.saveConnection': 'Save new connection',
     'sync.title': 'Sync status',
     'sync.waiting': 'Waiting for saved configuration.',
@@ -38,6 +49,12 @@ const translations = {
     'log.eventsLabel': 'Application events',
     'message.noDescription': 'Event without description',
     'message.validSettings': 'The configuration is valid.',
+    'message.connectionValid': 'Connection works. You can choose the source folder now.',
+    'message.remoteFoldersLoaded': (path) => `Source folders loaded for ${path}.`,
+    'message.remoteFoldersEmpty': 'This source folder has no child folders. You can still use it as the sync origin.',
+    'message.remoteFoldersFailed': (message) => `Source folders could not be loaded: ${message}`,
+    'message.connectionFailed': (message) => `Connection could not be validated: ${message}`,
+    'message.remoteFolderSelected': (path) => `Selected source folder: ${path}.`,
     'message.syncUpdateFailed': (message) => `Sync could not be updated: ${message}`,
     'message.syncStarted': 'Background sync started.',
     'message.syncPaused': 'Background sync paused.',
@@ -55,6 +72,19 @@ const translations = {
     'sync.statusTemplate': ({ message, updatedAt, lastSuccess, intervalSeconds }) => `${message} Last update: ${updatedAt}. Last success: ${lastSuccess}. Interval: ${intervalSeconds} seconds.`,
     'interval.minute': '1 minute',
     'interval.seconds': (value) => `${value} seconds`,
+    'wizard.stepsLabel': 'Setup steps',
+    'wizard.step.connection': 'Connection',
+    'wizard.step.folders': 'Source and path',
+    'wizard.step.schedule': 'Sync time',
+    'wizard.step.manage': 'Manage',
+    'wizard.connection.title': '1. Connection',
+    'wizard.connection.description': 'Enter the CMIS server and credentials first. Use Validate connection before choosing folders.',
+    'wizard.folders.title': '2. Source folder and local path',
+    'wizard.folders.description': 'Load the CMIS source folders, pick where synchronization should start, then choose the local destination.',
+    'wizard.schedule.title': '3. Synchronization time',
+    'wizard.schedule.description': 'Choose how often the app checks CMIS and whether it keeps running in the background.',
+    'wizard.manage.title': '4. Add a new option or delete the current one',
+    'wizard.manage.description': 'Save this setup as the active sync option, or remove the current connection and start over.',
     'state.idle': 'Not started',
     'state.scheduled': 'Scheduled',
     'state.running': 'Running',
@@ -66,9 +96,9 @@ const translations = {
     'state.unknown': 'Unknown'
   },
   es: {
-    'hero.eyebrow': 'Asistente inicial',
+    'hero.eyebrow': 'Asistente por pasos',
     'hero.title': 'Configura tu sincronización CMIS',
-    'hero.description': 'Define el servidor, credenciales y carpeta local. La aplicación puede permanecer en segundo plano desde la bandeja del sistema.',
+    'hero.description': 'Conecta, elige la carpeta de origen, define la ruta local y revisa los logs mientras la aplicación trabaja.',
     'action.minimizeToTray': 'Minimizar a bandeja',
     'action.quitApp': 'Cerrar aplicación',
     'field.cmisUrl': 'URL CMIS',
@@ -79,12 +109,23 @@ const translations = {
     'secretKind.token': 'Token',
     'field.secretValue': 'Contraseña o token',
     'field.localFolder': 'Carpeta local de sincronización',
+    'field.remoteFolder': 'Carpeta de origen CMIS',
     'placeholder.localFolder': '/ruta/a/carpeta',
     'action.chooseFolder': 'Elegir…',
     'field.syncInterval': 'Intervalo de sincronización (10 a 60 segundos)',
     'field.runInBackground': 'Seguir ejecutando en segundo plano al cerrar la ventana',
     'action.clearConnection': 'Eliminar conexión actual',
     'action.validate': 'Validar',
+    'action.validateConnection': 'Validar conexión',
+    'action.nextFolders': 'Siguiente: carpetas de origen',
+    'action.backConnection': 'Volver: conexión',
+    'action.nextSchedule': 'Siguiente: tiempo de sincronización',
+    'action.backFolders': 'Volver: origen y ruta',
+    'action.nextManage': 'Siguiente: agregar o borrar',
+    'action.backSchedule': 'Volver: tiempo',
+    'action.loadRemoteFolders': 'Mostrar carpetas de origen',
+    'action.selectRemoteRoot': 'Usar raíz del repositorio',
+    'action.remoteUp': 'Atrás',
     'action.saveConnection': 'Guardar nueva conexión',
     'sync.title': 'Estado de sincronización',
     'sync.waiting': 'Esperando configuración guardada.',
@@ -102,6 +143,12 @@ const translations = {
     'log.eventsLabel': 'Eventos de la aplicación',
     'message.noDescription': 'Evento sin descripción',
     'message.validSettings': 'La configuración es válida.',
+    'message.connectionValid': 'La conexión funciona. Ya puedes elegir la carpeta de origen.',
+    'message.remoteFoldersLoaded': (path) => `Carpetas de origen cargadas para ${path}.`,
+    'message.remoteFoldersEmpty': 'Esta carpeta de origen no tiene subcarpetas. Aun así puedes usarla como origen de sincronización.',
+    'message.remoteFoldersFailed': (message) => `No se pudieron cargar las carpetas de origen: ${message}`,
+    'message.connectionFailed': (message) => `No se pudo validar la conexión: ${message}`,
+    'message.remoteFolderSelected': (path) => `Carpeta de origen seleccionada: ${path}.`,
     'message.syncUpdateFailed': (message) => `No se pudo actualizar la sincronización: ${message}`,
     'message.syncStarted': 'Sincronización en segundo plano iniciada.',
     'message.syncPaused': 'Sincronización en segundo plano pausada.',
@@ -119,6 +166,19 @@ const translations = {
     'sync.statusTemplate': ({ message, updatedAt, lastSuccess, intervalSeconds }) => `${message} Última actualización: ${updatedAt}. Último éxito: ${lastSuccess}. Intervalo: ${intervalSeconds} segundos.`,
     'interval.minute': '1 minuto',
     'interval.seconds': (value) => `${value} segundos`,
+    'wizard.stepsLabel': 'Pasos de configuración',
+    'wizard.step.connection': 'Conexión',
+    'wizard.step.folders': 'Origen y ruta',
+    'wizard.step.schedule': 'Tiempo',
+    'wizard.step.manage': 'Gestionar',
+    'wizard.connection.title': '1. Conexión',
+    'wizard.connection.description': 'Introduce primero el servidor CMIS y las credenciales. Usa Validar conexión antes de elegir carpetas.',
+    'wizard.folders.title': '2. Carpeta de origen y ruta local',
+    'wizard.folders.description': 'Carga las carpetas de origen CMIS, elige desde dónde iniciar la sincronización y luego selecciona el destino local.',
+    'wizard.schedule.title': '3. Tiempo de sincronización',
+    'wizard.schedule.description': 'Elige cada cuánto la aplicación revisa CMIS y si debe seguir ejecutándose en segundo plano.',
+    'wizard.manage.title': '4. Agregar una nueva opción o borrar la actual',
+    'wizard.manage.description': 'Guarda esta configuración como opción activa de sincronización, o elimina la conexión actual para empezar de nuevo.',
     'state.idle': 'Sin iniciar',
     'state.scheduled': 'Programada',
     'state.running': 'En curso',
@@ -161,6 +221,11 @@ const syncStatus = document.querySelector('#syncStatus');
 const syncBadge = document.querySelector('#syncBadge');
 const syncIntervalLabel = document.querySelector('#syncIntervalLabel');
 const logEntries = document.querySelector('#logEntries');
+const remoteFolderList = document.querySelector('#remoteFolderList');
+const remoteFolderLabel = document.querySelector('#remoteFolderLabel');
+const wizardSteps = Array.from(document.querySelectorAll('.wizard-step'));
+const stepTabs = Array.from(document.querySelectorAll('.step-tab'));
+const remoteHistory = [];
 
 const fields = {
   cmisUrl: document.querySelector('#cmisUrl'),
@@ -168,6 +233,9 @@ const fields = {
   secretKind: document.querySelector('#secretKind'),
   secretValue: document.querySelector('#secretValue'),
   localFolder: document.querySelector('#localFolder'),
+  remoteFolderId: document.querySelector('#remoteFolderId'),
+  remoteFolderPath: document.querySelector('#remoteFolderPath'),
+  remoteFolderName: document.querySelector('#remoteFolderName'),
   syncIntervalSeconds: document.querySelector('#syncIntervalSeconds'),
   runInBackground: document.querySelector('#runInBackground')
 };
@@ -185,6 +253,11 @@ function collectSettings() {
     secretKind: fields.secretKind.value,
     secretValue: fields.secretValue.value,
     localFolder: fields.localFolder.value,
+    remoteFolder: {
+      id: fields.remoteFolderId.value,
+      path: fields.remoteFolderPath.value || '/',
+      name: fields.remoteFolderName.value || '/'
+    },
     syncIntervalSeconds: Number(fields.syncIntervalSeconds.value),
     runInBackground: fields.runInBackground.checked
   };
@@ -196,12 +269,34 @@ function applySettings(settings) {
   fields.secretKind.value = settings.secret?.kind ?? 'password';
   fields.secretValue.value = settings.secretValue ?? '';
   fields.localFolder.value = settings.localFolder ?? '';
+  setRemoteFolder(settings.remoteFolder ?? { id: '', path: '/', name: '/' }, false);
   fields.syncIntervalSeconds.value = settings.syncIntervalSeconds ?? 60;
   fields.runInBackground.checked = settings.runInBackground ?? true;
   updateIntervalLabel();
 
   if (settings.syncStatus) {
     renderSyncStatus(settings.syncStatus);
+  }
+}
+
+
+function setActiveStep(stepName) {
+  wizardSteps.forEach((step) => step.classList.toggle('active', step.dataset.step === stepName));
+  stepTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.stepTarget === stepName));
+}
+
+function setRemoteFolder(folder, showFeedback = true) {
+  const normalized = {
+    id: folder?.id ?? '',
+    path: folder?.path ?? '/',
+    name: folder?.name ?? '/'
+  };
+  fields.remoteFolderId.value = normalized.id;
+  fields.remoteFolderPath.value = normalized.path;
+  fields.remoteFolderName.value = normalized.name;
+  remoteFolderLabel.textContent = normalized.path;
+  if (showFeedback) {
+    showMessage(translate('message.remoteFolderSelected', normalized.path), true);
   }
 }
 
@@ -305,6 +400,77 @@ async function runSyncAction(action, successMessage) {
   }
 }
 
+
+async function validateConnectionOnly() {
+  const draft = collectSettings();
+  const result = await window.cmisPortable.validateSettings({
+    ...draft,
+    localFolder: draft.localFolder || '/tmp/cmisportable-validation'
+  });
+  const blockingErrors = result.errors.filter((error) => !['localFolder', 'syncIntervalSeconds'].includes(error.field));
+  if (blockingErrors.length > 0) {
+    showMessage(blockingErrors.map((error) => error.message).join(' '));
+    return false;
+  }
+  try {
+    await window.cmisPortable.testConnection(draft);
+    showMessage(translate('message.connectionValid'), true);
+    return true;
+  } catch (error) {
+    showMessage(translate('message.connectionFailed', error.message));
+    return false;
+  }
+}
+
+async function loadRemoteFolders(parentFolder = null) {
+  const canConnect = await validateConnectionOnly();
+  if (!canConnect) {
+    return;
+  }
+
+  try {
+    const result = await window.cmisPortable.listRemoteFolders({
+      ...collectSettings(),
+      parentFolder
+    });
+    renderRemoteFolders(result);
+    showMessage(
+      (result.folders ?? []).length === 0
+        ? translate('message.remoteFoldersEmpty')
+        : translate('message.remoteFoldersLoaded', result.current?.path ?? '/'),
+      true
+    );
+  } catch (error) {
+    showMessage(translate('message.remoteFoldersFailed', error.message));
+  }
+}
+
+function renderRemoteFolders(result = {}) {
+  const current = result.current ?? { id: '', name: '/', path: '/' };
+  setRemoteFolder(current, false);
+  remoteFolderList.replaceChildren(...(result.folders ?? []).map((folder) => {
+    const item = document.createElement('li');
+    const selectButton = document.createElement('button');
+    selectButton.type = 'button';
+    selectButton.className = 'folder-select';
+    selectButton.textContent = folder.name;
+    selectButton.addEventListener('click', () => setRemoteFolder(folder));
+
+    const openButton = document.createElement('button');
+    openButton.type = 'button';
+    openButton.className = 'ghost';
+    openButton.textContent = '›';
+    openButton.setAttribute('aria-label', folder.path);
+    openButton.addEventListener('click', () => {
+      remoteHistory.push(current);
+      loadRemoteFolders(folder);
+    });
+
+    item.append(selectButton, openButton);
+    return item;
+  }));
+}
+
 document.querySelector('#chooseFolder').addEventListener('click', async () => {
   const folder = await window.cmisPortable.chooseFolder();
   if (folder) {
@@ -314,7 +480,28 @@ document.querySelector('#chooseFolder').addEventListener('click', async () => {
 
 fields.syncIntervalSeconds.addEventListener('input', updateIntervalLabel);
 
-document.querySelector('#validate').addEventListener('click', validateDraft);
+document.querySelector('#validate').addEventListener('click', validateConnectionOnly);
+
+document.querySelector('#loadRemoteFolders').addEventListener('click', () => loadRemoteFolders());
+
+document.querySelector('#selectRemoteRoot').addEventListener('click', () => {
+  remoteHistory.length = 0;
+  setRemoteFolder({ id: '', name: '/', path: '/' });
+  remoteFolderList.replaceChildren();
+});
+
+document.querySelector('#remoteFolderUp').addEventListener('click', () => {
+  const previous = remoteHistory.pop();
+  loadRemoteFolders(previous ?? null);
+});
+
+document.querySelectorAll('[data-next-step]').forEach((button) => {
+  button.addEventListener('click', () => setActiveStep(button.dataset.nextStep));
+});
+
+stepTabs.forEach((button) => {
+  button.addEventListener('click', () => setActiveStep(button.dataset.stepTarget));
+});
 
 document.querySelector('#minimizeToTray').addEventListener('click', () => {
   window.cmisPortable.minimizeToTray();

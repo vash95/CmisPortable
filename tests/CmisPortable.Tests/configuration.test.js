@@ -11,6 +11,7 @@ test('normalizeSettings applies the default one minute sync interval', () => {
   const settings = normalizeSettings({});
   assert.equal(settings.syncIntervalSeconds, 60);
   assert.equal(settings.runInBackground, true);
+  assert.deepEqual(settings.remoteFolder, { id: '', name: '/', path: '/' });
 });
 
 test('validateSettings rejects missing required wizard fields', () => {
@@ -62,6 +63,7 @@ test('validateSettings accepts a complete HTTP CMIS configuration', () => {
 
   assert.equal(result.valid, true);
   assert.equal(result.settings.cmisUrl, 'https://example.test/cmis/browser');
+  assert.deepEqual(result.settings.remoteFolder, { id: '', name: '/', path: '/' });
 });
 
 test('SettingsStore persists configuration and delegates secrets to secure storage', async () => {

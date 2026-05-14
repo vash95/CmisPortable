@@ -3,10 +3,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('cmisPortable', {
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   validateSettings: (settings) => ipcRenderer.invoke('settings:validate', settings),
+  testConnection: (settings) => ipcRenderer.invoke('connection:test', settings),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   clearSettings: () => ipcRenderer.invoke('settings:clear'),
   getLocale: () => ipcRenderer.invoke('app:locale'),
   chooseFolder: () => ipcRenderer.invoke('folder:choose'),
+  listRemoteFolders: (draft) => ipcRenderer.invoke('remoteFolders:list', draft),
   minimizeToTray: () => ipcRenderer.invoke('window:minimizeToTray'),
   quitApp: () => ipcRenderer.invoke('window:quit'),
   startSync: () => ipcRenderer.invoke('sync:start'),

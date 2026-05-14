@@ -9,6 +9,11 @@ function createDefaultSettings() {
     cmisUrl: '',
     username: '',
     localFolder: '',
+    remoteFolder: {
+      id: '',
+      name: '/',
+      path: '/'
+    },
     syncIntervalSeconds: DEFAULT_SYNC_INTERVAL_SECONDS,
     secret: {
       kind: 'password',
@@ -31,6 +36,7 @@ function normalizeSettings(input = {}) {
     cmisUrl: String(input.cmisUrl ?? defaults.cmisUrl).trim(),
     username: String(input.username ?? defaults.username).trim(),
     localFolder: String(input.localFolder ?? defaults.localFolder).trim(),
+    remoteFolder: normalizeRemoteFolder(input.remoteFolder, input.remoteFolderId),
     syncIntervalSeconds,
     secret: {
       ...defaults.secret,
@@ -78,6 +84,15 @@ function validateSettings(input = {}, options = {}) {
   };
 }
 
+function normalizeRemoteFolder(remoteFolder = {}, legacyRemoteFolderId = '') {
+  const id = String(remoteFolder?.id ?? legacyRemoteFolderId ?? '').trim();
+  const rawPath = String(remoteFolder?.path ?? '/').trim() || '/';
+  const path = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+  const name = String(remoteFolder?.name ?? (path === '/' ? '/' : path.split('/').filter(Boolean).at(-1)) ?? '/').trim() || '/';
+
+  return { id, name, path };
+}
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
@@ -88,5 +103,6 @@ module.exports = {
   MAX_SYNC_INTERVAL_SECONDS,
   createDefaultSettings,
   normalizeSettings,
-  validateSettings
+  validateSettings,
+  normalizeRemoteFolder
 };
