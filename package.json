@@ -6,7 +6,10 @@
   "main": "src/CmisPortable.App/main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test tests/CmisPortable.Tests/*.test.js"
+    "test": "node --test tests/CmisPortable.Tests/*.test.js",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "dist:mac": "electron-builder --mac"
   },
   "keywords": [
     "cmis",
@@ -17,9 +20,27 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^39.2.4"
+    "electron": "^39.2.4",
+    "electron-builder": "^26.8.1"
   },
   "engines": {
     "node": ">=20"
+  },
+  "build": {
+    "appId": "com.cmisportable.app",
+    "productName": "CmisPortable",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    }
   }
 }

@@ -23,10 +23,30 @@ El índice registra `cmisObjectId`, ruta remota, ruta local, fecha de modificaci
 
 ## Comandos
 
+Instala las dependencias del proyecto:
+
 ```bash
 npm install
-npm test
+```
+
+Ejecuta la aplicación Electron en modo desarrollo:
+
+```bash
 npm start
+```
+
+Genera los instaladores y ejecutables para Windows con electron-builder:
+
+```bash
+npm run dist:win
+```
+
+Los artefactos generados por `npm run dist:win` se escriben en `dist/`.
+
+Para ejecutar la suite de pruebas:
+
+```bash
+npm test
 ```
 
 ## Configuración persistente
