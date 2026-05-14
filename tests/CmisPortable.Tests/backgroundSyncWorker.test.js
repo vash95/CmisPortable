@@ -38,7 +38,7 @@ test('BackgroundSyncWorker skips overlapping cycles', async () => {
   const skipped = await worker.forceSync('manual');
 
   assert.equal(skipped.state, 'skipped');
-  assert.match(skipped.message, /en curso/);
+  assert.match(skipped.message, /already running/);
 
   release({ downloaded: 0, updated: 0, deleted: 0 });
   await firstRun;
@@ -56,4 +56,17 @@ test('BackgroundSyncWorker records sync errors without throwing', async () => {
 
   assert.equal(status.state, 'error');
   assert.equal(status.error.message, 'CMIS unavailable');
+});
+
+
+test('BackgroundSyncWorker supports Spanish status messages', async () => {
+  const worker = new BackgroundSyncWorker({
+    syncNow: async () => ({ downloaded: 0, updated: 0, deleted: 0 }),
+    logger: { info() {}, error() {} },
+    locale: 'es'
+  });
+
+  const status = await worker.forceSync('manual');
+
+  assert.equal(status.message, 'Sincronización completada correctamente.');
 });

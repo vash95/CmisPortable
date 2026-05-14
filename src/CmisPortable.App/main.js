@@ -6,6 +6,7 @@ const { CmisSyncService } = require('../CmisPortable.Core/cmisSyncService');
 const { BrowserBindingCmisClient } = require('../CmisPortable.Core/browserBindingCmisClient');
 const { BackgroundSyncWorker } = require('../CmisPortable.Core/backgroundSyncWorker');
 const { createElectronSecureStorage } = require('./secureStorage');
+const { resolveLocale } = require('../CmisPortable.Core/i18n');
 
 let mainWindow;
 let tray;
@@ -13,20 +14,76 @@ let store;
 let backgroundSyncWorker;
 let logBuffer;
 let shouldRunInBackgroundOnClose = true;
+let appLocale = 'en';
 
 const MAX_LOG_ENTRIES = 200;
+
+const mainTranslations = {
+  en: {
+    'tray.openSettings': 'Open settings',
+    'tray.syncNow': 'Sync now',
+    'tray.resumeSync': 'Resume sync',
+    'tray.pauseSync': 'Pause sync',
+    'tray.quit': 'Quit',
+    'dialog.chooseFolder': 'Select local sync folder',
+    'log.sync.prepare': 'Preparing sync with the saved configuration.',
+    'log.config.interval': (seconds) => `Refresh interval set to ${seconds} seconds.`,
+    'log.config.backgroundEnabled': 'Background sync enabled.',
+    'log.config.backgroundDisabled': 'Background sync disabled.',
+    'log.config.saving': 'Saving sync configuration.',
+    'log.config.clearing': 'Removing the current connection and stored credentials.',
+    'log.app.quitRequested': 'Application quit requested from the interface.',
+    'log.sync.resuming': 'Resuming sync from the interface.',
+    'log.sync.pausing': 'Pausing sync from the interface.',
+    'log.sync.manual': 'Manual sync requested.',
+    'log.app.logsCleared': 'Log console cleared.',
+    'log.config.loaded': 'Stored credentials and configuration loaded at startup.',
+    'log.config.loadFailed': 'Stored credentials could not be loaded at startup.',
+    'log.app.started': 'Application started.'
+  },
+  es: {
+    'tray.openSettings': 'Abrir configuración',
+    'tray.syncNow': 'Sincronizar ahora',
+    'tray.resumeSync': 'Reanudar sincronización',
+    'tray.pauseSync': 'Pausar sincronización',
+    'tray.quit': 'Salir',
+    'dialog.chooseFolder': 'Seleccionar carpeta local de sincronización',
+    'log.sync.prepare': 'Preparando sincronización con la configuración guardada.',
+    'log.config.interval': (seconds) => `Intervalo de refresco configurado en ${seconds} segundos.`,
+    'log.config.backgroundEnabled': 'Sincronización en segundo plano habilitada.',
+    'log.config.backgroundDisabled': 'Sincronización en segundo plano deshabilitada.',
+    'log.config.saving': 'Guardando configuración de sincronización.',
+    'log.config.clearing': 'Eliminando la conexión actual y sus credenciales almacenadas.',
+    'log.app.quitRequested': 'Cierre de aplicación solicitado desde la interfaz.',
+    'log.sync.resuming': 'Reanudando sincronización desde la interfaz.',
+    'log.sync.pausing': 'Pausando sincronización desde la interfaz.',
+    'log.sync.manual': 'Sincronización manual solicitada.',
+    'log.app.logsCleared': 'Consola de log limpiada.',
+    'log.config.loaded': 'Credenciales y configuración almacenadas cargadas al iniciar.',
+    'log.config.loadFailed': 'No se pudieron cargar las credenciales almacenadas al iniciar.',
+    'log.app.started': 'Aplicación iniciada.'
+  }
+};
+
+function mt(key, ...args) {
+  const value = mainTranslations[appLocale]?.[key] ?? mainTranslations.en[key] ?? key;
+  return typeof value === 'function' ? value(...args) : value;
+}
+
 
 function createStore() {
   return new SettingsStore({
     settingsPath: path.join(app.getPath('userData'), 'settings.json'),
-    secureStorage: createElectronSecureStorage(safeStorage)
+    secureStorage: createElectronSecureStorage(safeStorage),
+    locale: appLocale
   });
 }
 
 function createBackgroundSyncWorker() {
   const worker = new BackgroundSyncWorker({
     syncNow: runConfiguredSync,
-    logger: createAppLogger('sync')
+    logger: createAppLogger('sync'),
+    locale: appLocale
   });
 
   worker.on('status', (status) => {
@@ -39,12 +96,12 @@ function createBackgroundSyncWorker() {
 
 async function runConfiguredSync() {
   const settings = await store.load();
-  const validation = validateSettings(settings);
+  const validation = validateSettings(settings, { locale: appLocale });
   if (!validation.valid) {
     throw new Error(validation.errors.map((error) => error.message).join(' '));
   }
 
-  logInfo('sync', 'Preparando sincronización con la configuración guardada.', {
+  logInfo('sync', mt('log.sync.prepare'), {
     localFolder: settings.localFolder,
     intervalSeconds: settings.syncIntervalSeconds
   });
@@ -116,18 +173,18 @@ function updateTrayMenu() {
   const isPaused = status?.paused ?? true;
 
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Abrir configuración', click: showMainWindow },
+    { label: mt('tray.openSettings'), click: showMainWindow },
     {
-      label: 'Sincronizar ahora',
+      label: mt('tray.syncNow'),
       click: () => backgroundSyncWorker?.forceSync('tray')
     },
     {
-      label: isPaused ? 'Reanudar sincronización' : 'Pausar sincronización',
+      label: isPaused ? mt('tray.resumeSync') : mt('tray.pauseSync'),
       click: () => toggleBackgroundSync()
     },
     { type: 'separator' },
     {
-      label: 'Salir',
+      label: mt('tray.quit'),
       click: () => {
         app.isQuiting = true;
         app.quit();
@@ -148,13 +205,13 @@ function configureBackgroundSync(settings) {
   shouldRunInBackgroundOnClose = settings.runInBackground ?? true;
   const intervalMs = (settings.syncIntervalSeconds ?? 60) * 1000;
   backgroundSyncWorker.setIntervalMs(intervalMs);
-  logInfo('config', `Intervalo de refresco configurado en ${settings.syncIntervalSeconds ?? 60} segundos.`);
+  logInfo('config', mt('log.config.interval', settings.syncIntervalSeconds ?? 60));
 
   if (settings.runInBackground) {
-    logInfo('config', 'Sincronización en segundo plano habilitada.');
+    logInfo('config', mt('log.config.backgroundEnabled'));
     backgroundSyncWorker.start();
   } else {
-    logInfo('config', 'Sincronización en segundo plano deshabilitada.');
+    logInfo('config', mt('log.config.backgroundDisabled'));
     backgroundSyncWorker.pause();
   }
 
@@ -168,6 +225,8 @@ function toggleBackgroundSync() {
 }
 
 function registerIpc() {
+  ipcMain.handle('app:locale', async () => appLocale);
+
   ipcMain.handle('settings:load', async () => {
     const settings = await store.load();
     const secretValue = await store.revealSecret(settings);
@@ -184,10 +243,10 @@ function registerIpc() {
     };
   });
 
-  ipcMain.handle('settings:validate', (_event, draft) => validateSettings(draft));
+  ipcMain.handle('settings:validate', (_event, draft) => validateSettings(draft, { locale: appLocale }));
 
   ipcMain.handle('settings:save', async (_event, draft) => {
-    logInfo('config', 'Guardando configuración de sincronización.');
+    logInfo('config', mt('log.config.saving'));
     const saved = await store.save(draft);
     const syncStatus = configureBackgroundSync(saved);
     return {
@@ -198,7 +257,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('settings:clear', async () => {
-    logInfo('config', 'Eliminando la conexión actual y sus credenciales almacenadas.');
+    logInfo('config', mt('log.config.clearing'));
     backgroundSyncWorker.stop();
     const settings = await store.clear();
     shouldRunInBackgroundOnClose = settings.runInBackground;
@@ -211,7 +270,7 @@ function registerIpc() {
 
   ipcMain.handle('folder:choose', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Seleccionar carpeta local de sincronización',
+      title: mt('dialog.chooseFolder'),
       properties: ['openDirectory', 'createDirectory']
     });
 
@@ -224,29 +283,29 @@ function registerIpc() {
   });
 
   ipcMain.handle('window:quit', () => {
-    logInfo('app', 'Cierre de aplicación solicitado desde la interfaz.');
+    logInfo('app', mt('log.app.quitRequested'));
     app.isQuiting = true;
     app.quit();
     return true;
   });
 
   ipcMain.handle('sync:start', async () => {
-    logInfo('sync', 'Reanudando sincronización desde la interfaz.');
+    logInfo('sync', mt('log.sync.resuming'));
     return backgroundSyncWorker.resume();
   });
   ipcMain.handle('sync:pause', async () => {
-    logInfo('sync', 'Pausando sincronización desde la interfaz.');
+    logInfo('sync', mt('log.sync.pausing'));
     return backgroundSyncWorker.pause();
   });
   ipcMain.handle('sync:force', async () => {
-    logInfo('sync', 'Sincronización manual solicitada.');
+    logInfo('sync', mt('log.sync.manual'));
     return backgroundSyncWorker.forceSync('manual');
   });
   ipcMain.handle('sync:status', async () => backgroundSyncWorker.getStatus());
   ipcMain.handle('logs:get', async () => getLogEntries());
   ipcMain.handle('logs:clear', async () => {
     clearLogEntries();
-    logInfo('app', 'Consola de log limpiada.');
+    logInfo('app', mt('log.app.logsCleared'));
     return getLogEntries();
   });
 }
@@ -329,10 +388,10 @@ async function loadStoredSettingsForStartup() {
 
     if (hasStoredConnection(settings)) {
       configureBackgroundSync(settings);
-      logInfo('config', 'Credenciales y configuración almacenadas cargadas al iniciar.');
+      logInfo('config', mt('log.config.loaded'));
     }
   } catch (error) {
-    logEntry('error', 'config', 'No se pudieron cargar las credenciales almacenadas al iniciar.', error);
+    logEntry('error', 'config', mt('log.config.loadFailed'), error);
   }
 }
 
@@ -347,8 +406,9 @@ function createTrayIconDataUrl() {
 }
 
 app.whenReady().then(() => {
+  appLocale = resolveLocale(app.getLocale());
   logBuffer = [];
-  logInfo('app', 'Aplicación iniciada.');
+  logInfo('app', mt('log.app.started'));
   store = createStore();
   backgroundSyncWorker = createBackgroundSyncWorker();
   registerIpc();
