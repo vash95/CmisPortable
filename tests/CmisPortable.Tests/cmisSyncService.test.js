@@ -98,6 +98,43 @@ test('CmisSyncService records permission errors per folder without aborting the 
   assert.equal(result.errors[0].permissionDenied, true);
 });
 
+
+test('CmisSyncService can start synchronization from a selected CMIS source folder', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-sync-test-'));
+  const client = createFakeClient({
+    '/': [
+      { id: 'folder-1', name: 'Projects', type: 'folder', lastModified: '2026-01-01T00:00:00Z' },
+      { id: 'folder-2', name: 'Archive', type: 'folder', lastModified: '2026-01-01T00:00:00Z' }
+    ],
+    'folder-1': [
+      { id: 'doc-1', name: 'selected.txt', type: 'document', lastModified: '2026-01-02T00:00:00Z', size: 8 }
+    ],
+    'folder-2': [
+      { id: 'doc-2', name: 'ignored.txt', type: 'document', lastModified: '2026-01-02T00:00:00Z', size: 7 }
+    ]
+  }, {
+    'doc-1': 'selected',
+    'doc-2': 'ignored'
+  });
+  const service = new CmisSyncService({ cmisClient: client, localRoot: tempDir, retryDelayMs: 1 });
+
+  const result = await service.sync({
+    url: 'https://example.test/cmis',
+    username: 'ana',
+    password: 'secret',
+    remoteFolder: { id: 'folder-1', name: 'Projects', path: '/Projects' }
+  });
+
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.downloaded, 1);
+  assert.equal(await fs.readFile(path.join(tempDir, 'selected.txt'), 'utf8'), 'selected');
+  await assert.rejects(() => fs.access(path.join(tempDir, 'ignored.txt')), /ENOENT/);
+
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.remotePath === '/Projects/selected.txt'), true);
+  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-2'), false);
+});
+
 function createFakeClient(childrenByFolder, documents) {
   return {
     childrenByFolder,

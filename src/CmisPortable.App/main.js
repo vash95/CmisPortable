@@ -23,6 +23,8 @@ const appLogoPath = path.join(__dirname, 'assets', 'logo.svg');
 
 const mainTranslations = {
   en: {
+    'dialog.remoteRoot': 'Repository root',
+    'log.config.remoteBrowse': 'Loading CMIS source folders.',
     'tray.openSettings': 'Open settings',
     'tray.syncNow': 'Sync now',
     'tray.resumeSync': 'Resume sync',
@@ -45,6 +47,8 @@ const mainTranslations = {
     'log.app.started': 'Application started.'
   },
   es: {
+    'dialog.remoteRoot': 'Raíz del repositorio',
+    'log.config.remoteBrowse': 'Cargando carpetas de origen CMIS.',
     'tray.openSettings': 'Abrir configuración',
     'tray.syncNow': 'Sincronizar ahora',
     'tray.resumeSync': 'Reanudar sincronización',
@@ -106,6 +110,7 @@ async function runConfiguredSync() {
 
   logInfo('sync', mt('log.sync.prepare'), {
     localFolder: settings.localFolder,
+    remoteFolder: settings.remoteFolder?.path ?? '/',
     intervalSeconds: settings.syncIntervalSeconds
   });
 
@@ -119,7 +124,8 @@ async function runConfiguredSync() {
   return syncService.SyncAsync({
     url: settings.cmisUrl,
     username: settings.username,
-    password
+    password,
+    remoteFolder: settings.remoteFolder
   });
 }
 
@@ -129,10 +135,10 @@ function createCmisClient() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 880,
-    height: 760,
-    minWidth: 760,
-    minHeight: 620,
+    width: 1180,
+    height: 820,
+    minWidth: 940,
+    minHeight: 680,
     title: 'CmisPortable',
     icon: nativeImage.createFromPath(appLogoPath),
     show: false,
@@ -282,6 +288,18 @@ function registerIpc() {
     };
   });
 
+  ipcMain.handle('connection:test', async (_event, draft = {}) => {
+    const client = createCmisClient();
+    await client.ConnectAsync(draft.cmisUrl, draft.username, draft.secretValue ?? '');
+    await client.GetRootFolderAsync();
+    return true;
+  });
+
+  ipcMain.handle('remoteFolders:list', async (_event, draft = {}) => {
+    logInfo('config', mt('log.config.remoteBrowse'), { parentFolder: draft.parentFolder?.path ?? '/' });
+    return listRemoteFolders(draft);
+  });
+
   ipcMain.handle('folder:choose', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: mt('dialog.chooseFolder'),
@@ -322,6 +340,55 @@ function registerIpc() {
     logInfo('app', mt('log.app.logsCleared'));
     return getLogEntries();
   });
+}
+
+
+async function listRemoteFolders(draft = {}) {
+  const client = createCmisClient();
+  const password = draft.secretValue ?? '';
+  await client.ConnectAsync(draft.cmisUrl, draft.username, password);
+
+  const rootFolder = await client.GetRootFolderAsync();
+  const parentFolder = draft.parentFolder?.id ? draft.parentFolder : null;
+  const current = parentFolder ?? {
+    id: getObjectId(rootFolder),
+    name: mt('dialog.remoteRoot'),
+    path: '/'
+  };
+
+  const parentId = current.id || getObjectId(rootFolder);
+  const children = await client.ListChildrenAsync(parentId);
+  return {
+    current,
+    folders: (children ?? [])
+      .filter(isRemoteFolder)
+      .map((folder) => {
+        const id = getObjectId(folder);
+        const name = String(folder.name ?? id ?? '').trim();
+        return {
+          id,
+          name,
+          path: joinRemotePath(current.path ?? '/', name)
+        };
+      })
+      .filter((folder) => folder.id && folder.name)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  };
+}
+
+function getObjectId(object) {
+  return object?.id ?? object?.objectId ?? object?.properties?.['cmis:objectId']?.value ?? null;
+}
+
+function isRemoteFolder(object) {
+  const type = String(object?.type ?? object?.baseTypeId ?? object?.properties?.['cmis:baseTypeId']?.value ?? '').toLowerCase();
+  return type.includes('folder');
+}
+
+function joinRemotePath(parent, name) {
+  const cleanParent = parent && parent !== '/' ? String(parent).replace(/\/+$/, '') : '';
+  const cleanName = String(name ?? '').replace(/^\/+|\/+$/g, '');
+  return `/${[cleanParent.replace(/^\//, ''), cleanName].filter(Boolean).join('/')}`;
 }
 
 function createAppLogger(source) {

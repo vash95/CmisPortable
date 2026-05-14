@@ -37,7 +37,7 @@ class CmisSyncService {
     return this.sync(credentials);
   }
 
-  async sync({ url, username, password }) {
+  async sync({ url, username, password, remoteFolder }) {
     const startedAt = new Date().toISOString();
     await fs.mkdir(this.localRoot, { recursive: true });
 
@@ -55,10 +55,11 @@ class CmisSyncService {
       () => this.withTimeout(this.cmisClient.GetRootFolderAsync(), 'GetRootFolderAsync'),
       'GetRootFolderAsync'
     );
+    const selectedFolder = await this.resolveSelectedFolder(rootFolder, remoteFolder);
 
     await this.syncFolder({
-      folder: rootFolder,
-      remotePath: '/',
+      folder: selectedFolder.folder,
+      remotePath: selectedFolder.remotePath,
       localPath: this.localRoot,
       previousIndex,
       nextEntries,
@@ -87,6 +88,52 @@ class CmisSyncService {
       ...stats,
       stats
     };
+  }
+
+
+  async resolveSelectedFolder(rootFolder, remoteFolder = {}) {
+    const rootId = getObjectId(rootFolder);
+    const selectedId = String(remoteFolder?.id ?? '').trim();
+    const selectedPath = String(remoteFolder?.path ?? '/').trim() || '/';
+
+    if (!selectedId || selectedId === rootId || selectedPath === '/') {
+      return { folder: rootFolder, remotePath: '/' };
+    }
+
+    const queue = [{ folder: rootFolder, remotePath: '/' }];
+    const visited = new Set();
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      const currentId = getObjectId(current.folder);
+      if (!currentId || visited.has(currentId)) {
+        continue;
+      }
+
+      if (currentId === selectedId || current.remotePath === selectedPath) {
+        return current;
+      }
+
+      visited.add(currentId);
+      const children = await this.withRetry(
+        () => this.withTimeout(this.cmisClient.ListChildrenAsync(currentId), `ListChildrenAsync:${current.remotePath}:browse`),
+        `ListChildrenAsync:${current.remotePath}:browse`
+      );
+
+      for (const child of children ?? []) {
+        if (!isFolder(child)) {
+          continue;
+        }
+        const childId = getObjectId(child);
+        const childName = sanitizePathSegment(child.name ?? childId);
+        queue.push({
+          folder: child,
+          remotePath: joinRemotePath(current.remotePath, childName)
+        });
+      }
+    }
+
+    throw new Error(`Selected CMIS source folder was not found: ${selectedPath}`);
   }
 
   async syncFolder({ folder, remotePath, localPath, previousIndex, nextEntries, errors, stats }) {
