@@ -3,7 +3,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, nativeImage, safeStorag
 const { SettingsStore } = require('../CmisPortable.Core/settingsStore');
 const { validateSettings } = require('../CmisPortable.Core/configuration');
 const { CmisSyncService } = require('../CmisPortable.Core/cmisSyncService');
-const { ICmisClient } = require('../CmisPortable.Core/cmisClient');
+const { BrowserBindingCmisClient } = require('../CmisPortable.Core/browserBindingCmisClient');
 const { BackgroundSyncWorker } = require('../CmisPortable.Core/backgroundSyncWorker');
 const { createElectronSecureStorage } = require('./secureStorage');
 
@@ -63,7 +63,7 @@ async function runConfiguredSync() {
 }
 
 function createCmisClient() {
-  return new ICmisClient();
+  return new BrowserBindingCmisClient();
 }
 
 function createWindow() {
