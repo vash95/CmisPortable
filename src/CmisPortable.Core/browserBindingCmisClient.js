@@ -131,7 +131,8 @@ class BrowserBindingCmisClient extends ICmisClient {
     const response = await this.request(parameters, baseUrl, {
       headers: { Accept: 'application/json' }
     });
-    return response.json();
+    const text = await response.text();
+    return parseJsonResponse(text);
   }
 
   async request(parameters, baseUrl = this.repositoryUrl, options = {}) {
@@ -188,6 +189,23 @@ function appendQuery(baseUrl, parameters) {
     }
   }
   return url.toString();
+}
+
+function parseJsonResponse(text) {
+  const body = String(text ?? '').trim();
+  if (!body) {
+    throw new Error('CMIS Browser Binding response is empty.');
+  }
+
+  try {
+    return JSON.parse(body);
+  } catch (error) {
+    if (body.startsWith('<')) {
+      throw new Error('El servidor devolvió XML en lugar de JSON. Usa una URL CMIS Browser Binding JSON, no una URL AtomPub o Web Services.');
+    }
+
+    throw new Error(`CMIS Browser Binding response is not valid JSON: ${body.slice(0, 120)}`);
+  }
 }
 
 function createAuthorizationHeader(username, password) {
@@ -342,5 +360,6 @@ function isNotFound(error) {
 module.exports = {
   BrowserBindingCmisClient,
   normalizeCmisObject,
-  extractChildren
+  extractChildren,
+  parseJsonResponse
 };

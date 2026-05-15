@@ -10,10 +10,7 @@ const translations = {
     'field.cmisUrl': 'CMIS URL',
     'placeholder.cmisUrl': 'https://server/cmis/browser',
     'field.username': 'Username',
-    'field.secretKind': 'Secret type',
-    'secretKind.password': 'Password',
-    'secretKind.token': 'Token',
-    'field.secretValue': 'Password or token',
+    'field.secretValue': 'Password',
     'field.localFolder': 'Local sync folder',
     'field.remoteFolder': 'CMIS source folder',
     'placeholder.localFolder': '/path/to/folder',
@@ -54,6 +51,7 @@ const translations = {
     'message.remoteFoldersEmpty': 'This source folder has no child folders. You can still use it as the sync origin.',
     'message.remoteFoldersFailed': (message) => `Source folders could not be loaded: ${message}`,
     'message.connectionFailed': (message) => `Connection could not be validated: ${message}`,
+    'message.connectionRequired': 'Validate the connection before leaving the connection step.',
     'message.remoteFolderSelected': (path) => `Selected source folder: ${path}.`,
     'message.syncUpdateFailed': (message) => `Sync could not be updated: ${message}`,
     'message.syncStarted': 'Background sync started.',
@@ -104,10 +102,7 @@ const translations = {
     'field.cmisUrl': 'URL CMIS',
     'placeholder.cmisUrl': 'https://servidor/cmis/browser',
     'field.username': 'Usuario',
-    'field.secretKind': 'Tipo de secreto',
-    'secretKind.password': 'Contraseña',
-    'secretKind.token': 'Token',
-    'field.secretValue': 'Contraseña o token',
+    'field.secretValue': 'Contraseña',
     'field.localFolder': 'Carpeta local de sincronización',
     'field.remoteFolder': 'Carpeta de origen CMIS',
     'placeholder.localFolder': '/ruta/a/carpeta',
@@ -148,6 +143,7 @@ const translations = {
     'message.remoteFoldersEmpty': 'Esta carpeta de origen no tiene subcarpetas. Aun así puedes usarla como origen de sincronización.',
     'message.remoteFoldersFailed': (message) => `No se pudieron cargar las carpetas de origen: ${message}`,
     'message.connectionFailed': (message) => `No se pudo validar la conexión: ${message}`,
+    'message.connectionRequired': 'Valida la conexión antes de salir de la pestaña de conexión.',
     'message.remoteFolderSelected': (path) => `Carpeta de origen seleccionada: ${path}.`,
     'message.syncUpdateFailed': (message) => `No se pudo actualizar la sincronización: ${message}`,
     'message.syncStarted': 'Sincronización en segundo plano iniciada.',
@@ -226,11 +222,11 @@ const remoteFolderLabel = document.querySelector('#remoteFolderLabel');
 const wizardSteps = Array.from(document.querySelectorAll('.wizard-step'));
 const stepTabs = Array.from(document.querySelectorAll('.step-tab'));
 const remoteHistory = [];
+let validatedConnectionKey = null;
 
 const fields = {
   cmisUrl: document.querySelector('#cmisUrl'),
   username: document.querySelector('#username'),
-  secretKind: document.querySelector('#secretKind'),
   secretValue: document.querySelector('#secretValue'),
   localFolder: document.querySelector('#localFolder'),
   remoteFolderId: document.querySelector('#remoteFolderId'),
@@ -250,7 +246,7 @@ function collectSettings() {
   return {
     cmisUrl: fields.cmisUrl.value,
     username: fields.username.value,
-    secretKind: fields.secretKind.value,
+    secretKind: 'password',
     secretValue: fields.secretValue.value,
     localFolder: fields.localFolder.value,
     remoteFolder: {
@@ -266,7 +262,6 @@ function collectSettings() {
 function applySettings(settings) {
   fields.cmisUrl.value = settings.cmisUrl ?? '';
   fields.username.value = settings.username ?? '';
-  fields.secretKind.value = settings.secret?.kind ?? 'password';
   fields.secretValue.value = settings.secretValue ?? '';
   fields.localFolder.value = settings.localFolder ?? '';
   setRemoteFolder(settings.remoteFolder ?? { id: '', path: '/', name: '/' }, false);
@@ -279,6 +274,40 @@ function applySettings(settings) {
   }
 }
 
+
+function getConnectionValidationKey(settings = collectSettings()) {
+  return JSON.stringify({
+    cmisUrl: String(settings.cmisUrl ?? '').trim(),
+    username: String(settings.username ?? '').trim(),
+    secretValue: settings.secretValue ?? ''
+  });
+}
+
+function isConnectionValidated() {
+  return validatedConnectionKey === getConnectionValidationKey();
+}
+
+function resetConnectionValidation() {
+  validatedConnectionKey = null;
+}
+
+function canOpenStep(stepName) {
+  if (stepName === 'connection' || isConnectionValidated()) {
+    return true;
+  }
+
+  showMessage(translate('message.connectionRequired'));
+  return false;
+}
+
+function navigateToStep(stepName) {
+  if (!canOpenStep(stepName)) {
+    return false;
+  }
+
+  setActiveStep(stepName);
+  return true;
+}
 
 function setActiveStep(stepName) {
   wizardSteps.forEach((step) => step.classList.toggle('active', step.dataset.step === stepName));
@@ -303,6 +332,10 @@ function setRemoteFolder(folder, showFeedback = true) {
 function showMessage(text, success = false) {
   messages.textContent = text;
   messages.classList.toggle('success', success);
+}
+
+function formatErrorMessage(error) {
+  return String(error?.message ?? error ?? '').replace(/^Error invoking remote method '[^']+':\s*/, '');
 }
 
 function updateIntervalLabel() {
@@ -413,11 +446,15 @@ async function validateConnectionOnly() {
     return false;
   }
   try {
-    await window.cmisPortable.testConnection(draft);
+    const connectionResult = await window.cmisPortable.testConnection(draft);
+    if (connectionResult?.valid === false) {
+      throw new Error(connectionResult.message);
+    }
+    validatedConnectionKey = getConnectionValidationKey(draft);
     showMessage(translate('message.connectionValid'), true);
     return true;
   } catch (error) {
-    showMessage(translate('message.connectionFailed', error.message));
+    showMessage(translate('message.connectionFailed', formatErrorMessage(error)));
     return false;
   }
 }
@@ -496,11 +533,15 @@ document.querySelector('#remoteFolderUp').addEventListener('click', () => {
 });
 
 document.querySelectorAll('[data-next-step]').forEach((button) => {
-  button.addEventListener('click', () => setActiveStep(button.dataset.nextStep));
+  button.addEventListener('click', () => navigateToStep(button.dataset.nextStep));
 });
 
 stepTabs.forEach((button) => {
-  button.addEventListener('click', () => setActiveStep(button.dataset.stepTarget));
+  button.addEventListener('click', () => navigateToStep(button.dataset.stepTarget));
+});
+
+[fields.cmisUrl, fields.username, fields.secretValue].forEach((field) => {
+  field.addEventListener('input', resetConnectionValidation);
 });
 
 document.querySelector('#minimizeToTray').addEventListener('click', () => {

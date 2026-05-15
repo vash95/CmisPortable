@@ -155,6 +155,13 @@ function createWindow() {
     mainWindow = null;
   });
 
+  mainWindow.on('minimize', (event) => {
+    if (shouldRunInBackgroundOnClose) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   mainWindow.on('close', (event) => {
     if (app.isQuiting) {
       return;
@@ -289,10 +296,17 @@ function registerIpc() {
   });
 
   ipcMain.handle('connection:test', async (_event, draft = {}) => {
-    const client = createCmisClient();
-    await client.ConnectAsync(draft.cmisUrl, draft.username, draft.secretValue ?? '');
-    await client.GetRootFolderAsync();
-    return true;
+    try {
+      const client = createCmisClient();
+      await client.ConnectAsync(draft.cmisUrl, draft.username, draft.secretValue ?? '');
+      await client.GetRootFolderAsync();
+      return { valid: true };
+    } catch (error) {
+      return {
+        valid: false,
+        message: sanitizeConnectionError(error)
+      };
+    }
   });
 
   ipcMain.handle('remoteFolders:list', async (_event, draft = {}) => {
@@ -428,6 +442,10 @@ function logEntry(level, source, message, details) {
   consoleMethod.call(console, `[${source}] ${message}`, details ?? '');
   mainWindow?.webContents.send('logs:entry', entry);
   return entry;
+}
+
+function sanitizeConnectionError(error) {
+  return String(error?.message ?? error ?? '').replace(/^Error invoking remote method '[^']+':\s*/, '');
 }
 
 function serializeLogDetails(details) {

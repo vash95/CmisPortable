@@ -40,7 +40,8 @@ function normalizeSettings(input = {}) {
     syncIntervalSeconds,
     secret: {
       ...defaults.secret,
-      ...(input.secret ?? {})
+      ...(input.secret ?? {}),
+      kind: 'password'
     },
     runInBackground: Boolean(input.runInBackground ?? defaults.runInBackground)
   };

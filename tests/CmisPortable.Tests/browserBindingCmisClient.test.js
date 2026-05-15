@@ -4,7 +4,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { BrowserBindingCmisClient } = require('../../src/CmisPortable.Core/browserBindingCmisClient');
+const { BrowserBindingCmisClient, parseJsonResponse } = require('../../src/CmisPortable.Core/browserBindingCmisClient');
 const { CmisSyncService } = require('../../src/CmisPortable.Core/cmisSyncService');
 
 test('BrowserBindingCmisClient connects, lists children and downloads content through CMIS Browser Binding', async (t) => {
@@ -29,6 +29,14 @@ test('BrowserBindingCmisClient connects, lists children and downloads content th
   ]);
   assert.equal(await fs.readFile(targetPath, 'utf8'), 'browser binding document');
   assert.equal(server.requests.every((request) => request.authorization === 'Basic YW5hOnNlY3JldA=='), true);
+});
+
+
+test('BrowserBindingCmisClient reports XML responses as Browser Binding URL errors', () => {
+  assert.throws(
+    () => parseJsonResponse('<?xml version="1.0"?><service />'),
+    /El servidor devolvió XML en lugar de JSON/
+  );
 });
 
 test('CmisSyncService can sync folders and documents using BrowserBindingCmisClient', async (t) => {
