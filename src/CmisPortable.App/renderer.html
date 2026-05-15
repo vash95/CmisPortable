@@ -119,6 +119,16 @@
           </section>
         </form>
 
+        <section class="connection-list card" aria-labelledby="configuredConnectionsTitle">
+          <div class="connection-list-header">
+            <div>
+              <h2 id="configuredConnectionsTitle" data-i18n="connections.title">Configured connections</h2>
+              <p data-i18n="connections.description">Saved CMIS sync options available in this app.</p>
+            </div>
+          </div>
+          <ol id="configuredConnections" class="configured-connections" aria-live="polite" aria-label="Configured connections" data-i18n-aria-label="connections.title"></ol>
+        </section>
+
         <section class="status card">
           <div class="status-header">
             <div>
@@ -141,15 +151,18 @@
         </section>
       </div>
 
-      <aside class="log-console card corner-log" aria-labelledby="logConsoleTitle">
-        <div class="log-header">
-          <div>
-            <h2 id="logConsoleTitle" data-i18n="log.title">Log console</h2>
-            <p data-i18n="log.description">Recent sync and configuration activity.</p>
+      <aside class="log-console card corner-log is-collapsed" aria-labelledby="logConsoleTitle">
+        <button id="toggleLogConsole" class="primary log-toggle" type="button" aria-expanded="false" data-i18n="action.showLogs">Show log console</button>
+        <div id="logConsoleContent" class="log-content" hidden>
+          <div class="log-header">
+            <div>
+              <h2 id="logConsoleTitle" data-i18n="log.title">Log console</h2>
+              <p data-i18n="log.description">Recent sync and configuration activity.</p>
+            </div>
+            <button id="clearLogs" class="ghost" type="button" data-i18n="action.clearLogs">Clear log</button>
           </div>
-          <button id="clearLogs" class="ghost" type="button" data-i18n="action.clearLogs">Clear log</button>
+          <ol id="logEntries" class="log-entries" aria-live="polite" aria-label="Application events" data-i18n-aria-label="log.eventsLabel"></ol>
         </div>
-        <ol id="logEntries" class="log-entries" aria-live="polite" aria-label="Application events" data-i18n-aria-label="log.eventsLabel"></ol>
       </aside>
     </main>
     <script src="renderer.js"></script>

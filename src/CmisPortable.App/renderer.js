@@ -40,6 +40,17 @@ const translations = {
     'action.pauseSync': 'Pause sync',
     'action.forceSync': 'Sync now',
     'action.refreshStatus': 'View latest status',
+    'connections.title': 'Configured connections',
+    'connections.description': 'Saved CMIS sync options available in this app.',
+    'connections.empty': 'No configured connections yet. Save a new connection to see it here.',
+    'connections.active': 'Active',
+    'connections.url': 'URL',
+    'connections.user': 'User',
+    'connections.remoteFolder': 'Remote folder',
+    'connections.localFolder': 'Local folder',
+    'connections.interval': 'Interval',
+    'action.showLogs': 'Show log console',
+    'action.hideLogs': 'Hide log console',
     'log.title': 'Log console',
     'log.description': 'Recent sync and configuration activity.',
     'action.clearLogs': 'Clear log',
@@ -132,6 +143,17 @@ const translations = {
     'action.pauseSync': 'Pausar sincronización',
     'action.forceSync': 'Sincronizar ahora',
     'action.refreshStatus': 'Ver último estado',
+    'connections.title': 'Conexiones configuradas',
+    'connections.description': 'Opciones de sincronización CMIS guardadas en esta aplicación.',
+    'connections.empty': 'Todavía no hay conexiones configuradas. Guarda una nueva conexión para verla aquí.',
+    'connections.active': 'Activa',
+    'connections.url': 'URL',
+    'connections.user': 'Usuario',
+    'connections.remoteFolder': 'Carpeta remota',
+    'connections.localFolder': 'Carpeta local',
+    'connections.interval': 'Intervalo',
+    'action.showLogs': 'Mostrar consola de log',
+    'action.hideLogs': 'Ocultar consola de log',
     'log.title': 'Consola de log',
     'log.description': 'Actividad reciente de la sincronización y de la configuración.',
     'action.clearLogs': 'Limpiar log',
@@ -217,6 +239,10 @@ const syncStatus = document.querySelector('#syncStatus');
 const syncBadge = document.querySelector('#syncBadge');
 const syncIntervalLabel = document.querySelector('#syncIntervalLabel');
 const logEntries = document.querySelector('#logEntries');
+const configuredConnections = document.querySelector('#configuredConnections');
+const toggleLogConsoleButton = document.querySelector('#toggleLogConsole');
+const logConsole = document.querySelector('.log-console');
+const logConsoleContent = document.querySelector('#logConsoleContent');
 const remoteFolderList = document.querySelector('#remoteFolderList');
 const remoteFolderLabel = document.querySelector('#remoteFolderLabel');
 const wizardSteps = Array.from(document.querySelectorAll('.wizard-step'));
@@ -300,6 +326,8 @@ function applySettings(settings) {
   fields.runInBackground.checked = settings.runInBackground ?? true;
   updateIntervalLabel();
 
+  renderConfiguredConnections(settings);
+
   if (settings.syncStatus) {
     renderSyncStatus(settings.syncStatus);
   }
@@ -372,6 +400,63 @@ function formatErrorMessage(error) {
 function updateIntervalLabel() {
   const value = Number(fields.syncIntervalSeconds.value || 60);
   syncIntervalLabel.textContent = value === 60 ? translate('interval.minute') : translate('interval.seconds', value);
+}
+
+function renderConfiguredConnections(settings = {}) {
+  const hasConnection = Boolean(String(settings.cmisUrl ?? '').trim());
+  if (!hasConnection) {
+    const emptyItem = document.createElement('li');
+    emptyItem.className = 'connection-empty';
+    emptyItem.textContent = translate('connections.empty');
+    configuredConnections.replaceChildren(emptyItem);
+    return;
+  }
+
+  const item = document.createElement('li');
+  item.className = 'connection-card';
+
+  const titleRow = document.createElement('div');
+  titleRow.className = 'connection-title-row';
+
+  const title = document.createElement('strong');
+  title.textContent = settings.remoteFolder?.path ?? '/';
+
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  badge.dataset.state = 'success';
+  badge.textContent = translate('connections.active');
+
+  titleRow.append(title, badge);
+
+  const details = document.createElement('dl');
+  details.className = 'connection-details';
+  appendConnectionDetail(details, translate('connections.url'), settings.cmisUrl);
+  appendConnectionDetail(details, translate('connections.user'), settings.username);
+  appendConnectionDetail(details, translate('connections.remoteFolder'), settings.remoteFolder?.path ?? '/');
+  appendConnectionDetail(details, translate('connections.localFolder'), settings.localFolder);
+  appendConnectionDetail(details, translate('connections.interval'), settings.syncIntervalSeconds === 60
+    ? translate('interval.minute')
+    : translate('interval.seconds', settings.syncIntervalSeconds ?? 60));
+
+  item.append(titleRow, details);
+  configuredConnections.replaceChildren(item);
+}
+
+function appendConnectionDetail(list, label, value) {
+  const term = document.createElement('dt');
+  term.textContent = label;
+
+  const description = document.createElement('dd');
+  description.textContent = value || '—';
+
+  list.append(term, description);
+}
+
+function setLogConsoleExpanded(expanded) {
+  logConsole.classList.toggle('is-collapsed', !expanded);
+  logConsoleContent.hidden = !expanded;
+  toggleLogConsoleButton.setAttribute('aria-expanded', String(expanded));
+  toggleLogConsoleButton.textContent = translate(expanded ? 'action.hideLogs' : 'action.showLogs');
 }
 
 function renderLogEntries(entries = []) {
@@ -600,6 +685,10 @@ document.querySelector('#refreshSyncStatus').addEventListener('click', () => {
   runSyncAction(() => window.cmisPortable.getSyncStatus(), translate('message.statusRefreshed'));
 });
 
+toggleLogConsoleButton.addEventListener('click', () => {
+  setLogConsoleExpanded(logConsoleContent.hidden);
+});
+
 document.querySelector('#clearLogs').addEventListener('click', async () => {
   const entries = await window.cmisPortable.clearLogs();
   renderLogEntries(entries);
@@ -638,6 +727,7 @@ window.cmisPortable.onLogEntry(appendLogEntry);
 async function initialize() {
   currentLocale = resolveLocale(await window.cmisPortable.getLocale());
   applyTranslations();
+  setLogConsoleExpanded(false);
   window.cmisPortable.getLogs().then(renderLogEntries);
 
   window.cmisPortable.loadSettings()
