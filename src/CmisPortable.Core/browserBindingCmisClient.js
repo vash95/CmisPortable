@@ -1,30 +1,35 @@
-const fs = require('node:fs/promises');
+const fs = require('node:fs');
+const fsp = require('node:fs/promises');
 const path = require('node:path');
+const { createRequire } = require('node:module');
 const { ICmisClient } = require('./cmisClient');
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const CMISJS_OPTIONS = { succinct: true };
 
 /**
- * Cliente CMIS Browser Binding basado en fetch.
+ * Cliente CMIS basado en CmisJS.
  *
- * Acepta URLs de repositorio Browser Binding como:
- *   https://host/cmis/browser/<repositoryId>
- * y, cuando el servidor expone un documento de servicio con repositorios, intenta
- * resolver automáticamente el primer repositorio disponible.
+ * CmisJS expone CmisSession como punto de entrada para Browser Binding. Este
+ * adaptador mantiene la interfaz interna ICmisClient usada por CmisPortable y
+ * normaliza las respuestas para que CmisSyncService no dependa de detalles del
+ * SDK ni del formato de propiedades CMIS.
  */
 class BrowserBindingCmisClient extends ICmisClient {
   constructor(options = {}) {
     super();
-    this.fetch = options.fetch ?? globalThis.fetch;
+    this.cmis = options.cmisModule ?? loadBundledCmisModule();
+    this.sessionFactory = options.sessionFactory ?? null;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.repositoryId = options.repositoryId ?? null;
     this.repositoryUrl = options.repositoryUrl ?? null;
     this.rootFolderId = options.rootFolderId ?? null;
+    this.session = null;
     this.username = null;
     this.password = null;
 
-    if (typeof this.fetch !== 'function') {
-      throw new Error('BrowserBindingCmisClient requires a fetch implementation. Use Node.js 18+ or provide options.fetch.');
+    if (!this.cmis && !this.sessionFactory) {
+      throw new Error('BrowserBindingCmisClient requires the CmisJS package. Install the "cmis" dependency or provide options.cmisModule/options.sessionFactory.');
     }
   }
 
@@ -37,15 +42,33 @@ class BrowserBindingCmisClient extends ICmisClient {
     this.password = password ?? '';
 
     const configuredUrl = normalizeBaseUrl(url);
-    const repositoryInfo = await this.getRepositoryInfo(configuredUrl);
-    const resolved = resolveRepository(configuredUrl, repositoryInfo, this.repositoryId);
+    this.session = this.createSession(configuredUrl);
+    if (typeof this.session.setCredentials === 'function') {
+      this.session.setCredentials(this.username, this.password);
+    }
 
-    this.repositoryId = resolved.repositoryId;
-    this.repositoryUrl = resolved.repositoryUrl;
-    this.rootFolderId = resolved.rootFolderId;
+    const repositories = await this.withTimeout(
+      () => executeCmisRequest(this.session.loadRepositories()),
+      `CmisJS loadRepositories: ${configuredUrl}`
+    );
+    const selected = selectRepository(repositories, this.session.defaultRepository, this.repositoryId);
+
+    if (selected?.raw && this.session.defaultRepository !== selected.raw) {
+      this.session.defaultRepository = selected.raw;
+    }
+
+    this.repositoryId = selected?.repositoryId ?? this.repositoryId;
+    this.repositoryUrl = normalizeBaseUrl(selected?.repositoryUrl ?? configuredUrl);
+    this.rootFolderId = selected?.rootFolderId ?? null;
 
     if (!this.repositoryUrl) {
       throw new Error('Unable to resolve a CMIS Browser Binding repository URL.');
+    }
+
+    if (!this.rootFolderId) {
+      const repositoryInfo = await this.getRepositoryInfo();
+      const info = normalizeRepositoryInfo(repositoryInfo);
+      this.rootFolderId = info?.rootFolderId ?? null;
     }
 
     if (!this.rootFolderId) {
@@ -74,7 +97,14 @@ class BrowserBindingCmisClient extends ICmisClient {
       }
     }
 
-    const rootByPath = await this.getObject({ path: '/' });
+    if (typeof this.session.getObjectByPath !== 'function') {
+      throw new Error('CmisJS session does not support getObjectByPath and rootFolderId is unavailable.');
+    }
+
+    const rootByPath = await this.withTimeout(
+      () => executeCmisRequest(this.session.getObjectByPath('/', CMISJS_OPTIONS)),
+      'CmisJS getObjectByPath: /'
+    );
     const normalizedRoot = normalizeCmisObject(rootByPath, 'folder');
     this.rootFolderId = normalizedRoot.id;
     return normalizedRoot;
@@ -86,10 +116,10 @@ class BrowserBindingCmisClient extends ICmisClient {
       throw new Error('folderId is required to list CMIS children.');
     }
 
-    const response = await this.requestJson({
-      cmisselector: 'children',
-      objectId: folderId
-    });
+    const response = await this.withTimeout(
+      () => executeCmisRequest(this.session.getChildren(folderId, CMISJS_OPTIONS)),
+      `CmisJS getChildren: ${folderId}`
+    );
 
     return extractChildren(response).map((child) => normalizeCmisObject(child));
   }
@@ -103,92 +133,104 @@ class BrowserBindingCmisClient extends ICmisClient {
       throw new Error('targetPath is required to download a CMIS document.');
     }
 
-    await fs.mkdir(path.dirname(targetPath), { recursive: true });
-    const response = await this.request({
-      cmisselector: 'content',
-      objectId: documentId
-    });
+    await fsp.mkdir(path.dirname(targetPath), { recursive: true });
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    await fs.writeFile(targetPath, buffer);
+    if (typeof this.session.pipeContentStream === 'function') {
+      await this.pipeContentStream(documentId, targetPath);
+      return;
+    }
+
+    const response = await this.withTimeout(
+      () => executeCmisRequest(this.session.getContentStream(documentId, 'attachment')),
+      `CmisJS getContentStream: ${documentId}`
+    );
+    await fsp.writeFile(targetPath, await responseToBuffer(response));
   }
 
-  async getRepositoryInfo(baseUrl) {
-    return this.requestJson({ cmisselector: 'repositoryInfo' }, baseUrl);
+  async getRepositoryInfo() {
+    this.ensureConnected();
+    return this.withTimeout(
+      () => executeCmisRequest(this.session.getRepositoryInfo()),
+      'CmisJS getRepositoryInfo'
+    );
   }
 
   async getObject({ objectId, path: cmisPath }) {
-    const parameters = { cmisselector: 'object' };
     if (objectId) {
-      parameters.objectId = objectId;
-    } else {
-      parameters.path = cmisPath;
+      return this.withTimeout(
+        () => executeCmisRequest(this.session.getObject(objectId, undefined, CMISJS_OPTIONS)),
+        `CmisJS getObject: ${objectId}`
+      );
     }
-    return this.requestJson(parameters);
+
+    return this.withTimeout(
+      () => executeCmisRequest(this.session.getObjectByPath(cmisPath, CMISJS_OPTIONS)),
+      `CmisJS getObjectByPath: ${cmisPath}`
+    );
   }
 
-  async requestJson(parameters, baseUrl = this.repositoryUrl) {
-    const response = await this.request(parameters, baseUrl, {
-      headers: { Accept: 'application/json' }
+  async pipeContentStream(documentId, targetPath) {
+    await new Promise((resolve, reject) => {
+      const writeStream = fs.createWriteStream(targetPath);
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+
+      try {
+        const request = this.session.pipeContentStream(documentId, {}, writeStream);
+        request?.on?.('error', reject);
+      } catch (error) {
+        writeStream.destroy();
+        reject(error);
+      }
     });
-    const text = await response.text();
-    return parseJsonResponse(text);
   }
 
-  async request(parameters, baseUrl = this.repositoryUrl, options = {}) {
-    const requestUrl = appendQuery(baseUrl, parameters);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+  createSession(url) {
+    if (this.sessionFactory) {
+      return this.sessionFactory(url);
+    }
+    const cmisApi = this.cmis.cmis ?? this.cmis;
+    if (typeof cmisApi.CmisSession === 'function') {
+      return new cmisApi.CmisSession(url);
+    }
+    if (typeof cmisApi.createSession === 'function') {
+      return cmisApi.createSession(url);
+    }
+    throw new Error('Unsupported CmisJS module: expected CmisSession or createSession.');
+  }
+
+  async withTimeout(operation, label) {
+    let timeout;
+    const timeoutPromise = new Promise((_resolve, reject) => {
+      timeout = setTimeout(() => reject(new Error(`${label} timed out after ${this.timeoutMs} ms.`)), this.timeoutMs);
+    });
 
     try {
-      const response = await this.fetch(requestUrl, {
-        method: 'GET',
-        ...options,
-        headers: {
-          ...createAuthorizationHeader(this.username, this.password),
-          ...(options.headers ?? {})
-        },
-        signal: controller.signal
-      });
-
-      if (!response.ok) {
-        const message = await readErrorMessage(response);
-        const error = new Error(`CMIS Browser Binding request failed with HTTP ${response.status}${message ? `: ${message}` : ''}`);
-        error.status = response.status;
-        error.statusCode = response.status;
-        throw error;
-      }
-
-      return response;
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        throw new Error(`CMIS Browser Binding request timed out after ${this.timeoutMs} ms: ${requestUrl}`);
-      }
-      throw error;
+      return await Promise.race([Promise.resolve().then(operation), timeoutPromise]);
     } finally {
       clearTimeout(timeout);
     }
   }
 
   ensureConnected() {
-    if (!this.repositoryUrl) {
+    if (!this.session) {
       throw new Error('ConnectAsync must be called before using the CMIS client.');
     }
   }
 }
 
-function normalizeBaseUrl(url) {
-  return String(url).replace(/\/+$/, '');
+function loadBundledCmisModule() {
+  const projectRoot = path.resolve(__dirname, '..', '..');
+  const requireFromProject = createRequire(path.join(projectRoot, 'package.json'));
+  const cmisPackagePath = path.join(projectRoot, 'node_modules', 'cmis');
+  if (!fs.existsSync(cmisPackagePath)) {
+    return null;
+  }
+  return requireFromProject('cmis');
 }
 
-function appendQuery(baseUrl, parameters) {
-  const url = new URL(baseUrl);
-  for (const [key, value] of Object.entries(parameters ?? {})) {
-    if (value != null) {
-      url.searchParams.set(key, value);
-    }
-  }
-  return url.toString();
+function normalizeBaseUrl(url) {
+  return String(url).replace(/\/+$/, '');
 }
 
 function parseJsonResponse(text) {
@@ -208,35 +250,18 @@ function parseJsonResponse(text) {
   }
 }
 
-function createAuthorizationHeader(username, password) {
-  if (!username && !password) {
-    return {};
-  }
-  const token = Buffer.from(`${username}:${password}`).toString('base64');
-  return { Authorization: `Basic ${token}` };
-}
-
-function resolveRepository(configuredUrl, repositoryInfo, preferredRepositoryId) {
-  const directRepository = normalizeRepositoryInfo(repositoryInfo);
-  if (directRepository) {
-    return {
-      repositoryId: directRepository.repositoryId ?? preferredRepositoryId,
-      repositoryUrl: configuredUrl,
-      rootFolderId: directRepository.rootFolderId
-    };
+function selectRepository(repositories, defaultRepository, preferredRepositoryId) {
+  const descriptors = extractRepositories(repositories);
+  const defaultDescriptor = normalizeRepositoryDescriptor(defaultRepository);
+  if (defaultDescriptor.repositoryId && !descriptors.some((repository) => repository.repositoryId === defaultDescriptor.repositoryId)) {
+    descriptors.unshift(defaultDescriptor);
   }
 
-  const repositories = extractRepositories(repositoryInfo);
-  if (repositories.length === 0) {
-    throw new Error('CMIS repositoryInfo response does not describe any repository.');
+  if (descriptors.length === 0) {
+    throw new Error('CmisJS loadRepositories did not return any CMIS repository.');
   }
 
-  const selected = repositories.find((repository) => repository.repositoryId === preferredRepositoryId) ?? repositories[0];
-  return {
-    repositoryId: selected.repositoryId,
-    repositoryUrl: selected.repositoryUrl ? normalizeBaseUrl(selected.repositoryUrl) : `${configuredUrl}/${encodeURIComponent(selected.repositoryId)}`,
-    rootFolderId: selected.rootFolderId
-  };
+  return descriptors.find((repository) => repository.repositoryId === preferredRepositoryId) ?? descriptors[0];
 }
 
 function normalizeRepositoryInfo(repositoryInfo) {
@@ -248,6 +273,7 @@ function normalizeRepositoryInfo(repositoryInfo) {
     ?? succinct['cmis:repositoryId'];
   const rootFolderId = repositoryInfo?.rootFolderId
     ?? repositoryInfo?.rootFolder?.id
+    ?? repositoryInfo?.rootFolderId?.value
     ?? valueOfProperty(properties['cmis:rootFolderId'])
     ?? succinct['cmis:rootFolderId'];
 
@@ -273,12 +299,13 @@ function extractRepositories(repositoryInfo) {
     .filter((repository) => repository.repositoryId);
 }
 
-function normalizeRepositoryDescriptor(repository) {
+function normalizeRepositoryDescriptor(repository = {}) {
   const info = normalizeRepositoryInfo(repository) ?? {};
   return {
     repositoryId: repository.repositoryId ?? repository.id ?? info.repositoryId,
     repositoryUrl: repository.repositoryUrl ?? repository.browserBindingUrl ?? repository.url,
-    rootFolderId: repository.rootFolderId ?? info.rootFolderId
+    rootFolderId: repository.rootFolderId ?? info.rootFolderId,
+    raw: repository
   };
 }
 
@@ -344,22 +371,70 @@ function mapBaseType(value) {
   return null;
 }
 
-async function readErrorMessage(response) {
-  try {
-    const text = await response.text();
-    return text.trim().slice(0, 500);
-  } catch (_error) {
-    return '';
-  }
+function isNotFound(error) {
+  return error?.status === 404 || error?.statusCode === 404 || error?.response?.status === 404;
 }
 
-function isNotFound(error) {
-  return error?.status === 404 || error?.statusCode === 404;
+function executeCmisRequest(request) {
+  if (isPromiseLike(request)) {
+    return request;
+  }
+
+  if (request && typeof request.ok === 'function') {
+    return new Promise((resolve, reject) => {
+      request
+        .ok(resolve)
+        .notOk?.((response) => reject(createCmisHttpError(response)))
+        .error?.(reject);
+    });
+  }
+
+  return Promise.resolve(request);
+}
+
+function isPromiseLike(value) {
+  return value && typeof value.then === 'function';
+}
+
+function createCmisHttpError(response) {
+  const status = response?.status ?? response?.statusCode;
+  const text = response?.text ?? response?.body?.message ?? response?.body?.exception ?? '';
+  const error = new Error(`CMIS Browser Binding request failed${status ? ` with HTTP ${status}` : ''}${text ? `: ${String(text).slice(0, 500)}` : ''}`);
+  error.status = status;
+  error.statusCode = status;
+  error.response = response;
+  return error;
+}
+
+async function responseToBuffer(response) {
+  if (Buffer.isBuffer(response)) {
+    return response;
+  }
+  if (response instanceof Uint8Array) {
+    return Buffer.from(response);
+  }
+  if (typeof response === 'string') {
+    return Buffer.from(response);
+  }
+  if (typeof response?.arrayBuffer === 'function') {
+    return Buffer.from(await response.arrayBuffer());
+  }
+  if (response?.body && Buffer.isBuffer(response.body)) {
+    return response.body;
+  }
+  if (typeof response?.text === 'function') {
+    return Buffer.from(await response.text());
+  }
+  if (typeof response?.text === 'string') {
+    return Buffer.from(response.text);
+  }
+  throw new Error('CmisJS getContentStream returned an unsupported response type.');
 }
 
 module.exports = {
   BrowserBindingCmisClient,
   normalizeCmisObject,
   extractChildren,
-  parseJsonResponse
+  parseJsonResponse,
+  executeCmisRequest
 };

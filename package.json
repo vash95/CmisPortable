@@ -41,5 +41,8 @@
         "nsis"
       ]
     }
+  },
+  "dependencies": {
+    "cmis": "^1.0.3"
   }
 }
