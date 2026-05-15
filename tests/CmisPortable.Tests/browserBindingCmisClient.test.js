@@ -99,7 +99,7 @@ test('BrowserBindingCmisClient reports HTTP connection failures with status and 
   });
 
   await assert.rejects(
-    () => client.ConnectAsync('http://127.0.0.1/ic2v11/atom/cmis', 'ana', 'secret'),
+    () => client.ConnectAsync('http://127.0.0.1/ic2v11/browser', 'ana', 'secret'),
     (error) => {
       assert.match(error.message, /HTTP 404/);
       assert.match(error.message, /URL usada: http:\/\/127\.0\.0\.1\/ic2v11\/browser/);
@@ -110,6 +110,117 @@ test('BrowserBindingCmisClient reports HTTP connection failures with status and 
     }
   );
 });
+
+
+test('BrowserBindingCmisClient falls back to AtomPub when derived Browser Binding URL is missing', async () => {
+  const originalFetch = global.fetch;
+  const requestedUrls = [];
+  const response404 = {
+    status: 404,
+    statusText: 'Not Found',
+    url: 'http://127.0.0.1/ic2v11/browser',
+    clone() {
+      return { text: async () => 'Not Found' };
+    }
+  };
+
+  global.fetch = async (url) => {
+    requestedUrls.push(String(url));
+    if (String(url) === 'http://127.0.0.1/ic2v11/atom/cmis') {
+      return new Response(atomPubServiceDocument(), { status: 200, headers: { 'content-type': 'application/atomsvc+xml' } });
+    }
+    if (String(url) === 'http://127.0.0.1/ic2v11/atom/cmis/object/root-folder') {
+      return new Response(atomPubEntry({ id: 'root-folder', name: '/', type: 'cmis:folder', childrenUrl: 'http://127.0.0.1/ic2v11/atom/cmis/children/root-folder' }), { status: 200 });
+    }
+    if (String(url) === 'http://127.0.0.1/ic2v11/atom/cmis/children/root-folder') {
+      return new Response(atomPubFeed([
+        atomPubEntry({ id: 'folder-1', name: 'Projects', type: 'cmis:folder', childrenUrl: 'http://127.0.0.1/ic2v11/atom/cmis/children/folder-1' }),
+        atomPubEntry({ id: 'doc-1', name: 'manual.txt', type: 'cmis:document', contentUrl: 'http://127.0.0.1/ic2v11/atom/cmis/content/doc-1' })
+      ]), { status: 200 });
+    }
+    if (String(url) === 'http://127.0.0.1/ic2v11/atom/cmis/content/doc-1') {
+      return new Response('atompub document', { status: 200 });
+    }
+    return new Response('missing', { status: 404, statusText: 'missing' });
+  };
+
+  try {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-atompub-client-test-'));
+    const targetPath = path.join(tempDir, 'manual.txt');
+    const client = new BrowserBindingCmisClient({
+      sessionFactory: (url) => ({
+        url,
+        setCredentials() {},
+        loadRepositories() {
+          const error = new Error('Not Found');
+          error.name = 'HTTPError';
+          error.response = response404;
+          return Promise.reject(error);
+        }
+      })
+    });
+
+    const connection = await client.ConnectAsync('http://127.0.0.1/ic2v11/atom/cmis', 'ana', 'secret');
+    const root = await client.GetRootFolderAsync();
+    const children = await client.ListChildrenAsync(root.id);
+    await client.DownloadDocumentAsync('doc-1', targetPath);
+
+    assert.equal(connection.repositoryId, 'repo-atom');
+    assert.equal(connection.rootFolderId, 'root-folder');
+    assert.equal(root.id, 'root-folder');
+    assert.deepEqual(children.map((child) => ({ id: child.id, name: child.name, type: child.type })), [
+      { id: 'folder-1', name: 'Projects', type: 'folder' },
+      { id: 'doc-1', name: 'manual.txt', type: 'document' }
+    ]);
+    assert.equal(await fs.readFile(targetPath, 'utf8'), 'atompub document');
+    assert.deepEqual(requestedUrls, [
+      'http://127.0.0.1/ic2v11/atom/cmis',
+      'http://127.0.0.1/ic2v11/atom/cmis/object/root-folder',
+      'http://127.0.0.1/ic2v11/atom/cmis/children/root-folder',
+      'http://127.0.0.1/ic2v11/atom/cmis/content/doc-1'
+    ]);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+function atomPubServiceDocument() {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+    <app:service xmlns:app="http://www.w3.org/2007/app" xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/" xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/">
+      <app:workspace>
+        <cmisra:repositoryInfo>
+          <cmis:repositoryId>repo-atom</cmis:repositoryId>
+          <cmis:rootFolderId>root-folder</cmis:rootFolderId>
+        </cmisra:repositoryInfo>
+        <app:collection href="http://127.0.0.1/ic2v11/atom/cmis/children/root-folder">
+          <cmisra:collectionType>root</cmisra:collectionType>
+        </app:collection>
+        <cmisra:uritemplate>
+          <cmisra:template>http://127.0.0.1/ic2v11/atom/cmis/object/{id}</cmisra:template>
+          <cmisra:type>objectbyid</cmisra:type>
+        </cmisra:uritemplate>
+      </app:workspace>
+    </app:service>`;
+}
+
+function atomPubFeed(entries) {
+  return `<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/" xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/">${entries.join('')}</feed>`;
+}
+
+function atomPubEntry({ id, name, type, childrenUrl, contentUrl }) {
+  return `<entry xmlns="http://www.w3.org/2005/Atom" xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/" xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/">
+    <title>${name}</title>
+    ${childrenUrl ? `<link rel="down" type="application/atom+xml;type=feed" href="${childrenUrl}" />` : ''}
+    ${contentUrl ? `<link rel="enclosure" href="${contentUrl}" />` : ''}
+    <cmisra:object>
+      <cmis:properties>
+        <cmis:propertyId propertyDefinitionId="cmis:objectId"><cmis:value>${id}</cmis:value></cmis:propertyId>
+        <cmis:propertyString propertyDefinitionId="cmis:name"><cmis:value>${name}</cmis:value></cmis:propertyString>
+        <cmis:propertyId propertyDefinitionId="cmis:baseTypeId"><cmis:value>${type}</cmis:value></cmis:propertyId>
+      </cmis:properties>
+    </cmisra:object>
+  </entry>`;
+}
 
 test('CmisSyncService can sync folders and documents using BrowserBindingCmisClient with CmisJS', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-js-sync-test-'));
