@@ -41,16 +41,21 @@ class BrowserBindingCmisClient extends ICmisClient {
     this.username = username ?? '';
     this.password = password ?? '';
 
-    const configuredUrl = normalizeBaseUrl(url);
+    const configuredUrl = normalizeBrowserBindingUrl(url);
     this.session = this.createSession(configuredUrl);
     if (typeof this.session.setCredentials === 'function') {
       this.session.setCredentials(this.username, this.password);
     }
 
-    const repositories = await this.withTimeout(
-      () => executeCmisRequest(this.session.loadRepositories()),
-      `CmisJS loadRepositories: ${configuredUrl}`
-    );
+    let repositories;
+    try {
+      repositories = await this.withTimeout(
+        () => executeCmisRequest(this.session.loadRepositories()),
+        `CmisJS loadRepositories: ${configuredUrl}`
+      );
+    } catch (error) {
+      throw normalizeConnectionError(error, configuredUrl);
+    }
     const selected = selectRepository(repositories, this.session.defaultRepository, this.repositoryId);
 
     if (selected?.raw && this.session.defaultRepository !== selected.raw) {
@@ -230,7 +235,70 @@ function loadBundledCmisModule() {
 }
 
 function normalizeBaseUrl(url) {
-  return String(url).replace(/\/+$/, '');
+  return String(url ?? '').trim().replace(/\/+$/, '');
+}
+
+function normalizeBrowserBindingUrl(url) {
+  const baseUrl = normalizeBaseUrl(url);
+  return getBrowserBindingUrlCandidate(baseUrl) ?? baseUrl;
+}
+
+function getBrowserBindingUrlCandidate(url) {
+  if (!url) {
+    return null;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+
+  const browserPath = toBrowserBindingPath(parsed.pathname);
+  if (!browserPath || browserPath === parsed.pathname) {
+    return null;
+  }
+
+  parsed.pathname = browserPath;
+  parsed.search = '';
+  parsed.hash = '';
+  return normalizeBaseUrl(parsed.toString());
+}
+
+function toBrowserBindingPath(pathname) {
+  const segments = String(pathname ?? '').split('/');
+  const atomIndex = segments.findIndex((segment) => isAtomBindingSegment(segment));
+  if (atomIndex === -1) {
+    return null;
+  }
+
+  const nextSegment = segments[atomIndex + 1]?.toLowerCase();
+  const hasCmisServiceSegment = nextSegment === 'cmis';
+  const trailingSegments = hasCmisServiceSegment ? segments.slice(atomIndex + 2) : segments.slice(atomIndex + 1);
+  if (trailingSegments.some((segment) => segment.length > 0)) {
+    return null;
+  }
+
+  const replacement = [...segments.slice(0, atomIndex), 'browser'];
+  return replacement.join('/') || '/browser';
+}
+
+function isAtomBindingSegment(segment) {
+  return ['atom', 'atompub'].includes(String(segment ?? '').toLowerCase());
+}
+
+function normalizeConnectionError(error, configuredUrl) {
+  if (isXmlJsonParseError(error)) {
+    return new Error(`El servidor devolvió XML en lugar de JSON desde ${configuredUrl}. CmisPortable necesita una URL CMIS Browser Binding JSON; si tu URL original termina en /atom/cmis, usa /browser.`);
+  }
+
+  return error;
+}
+
+function isXmlJsonParseError(error) {
+  const message = String(error?.message ?? error ?? '');
+  return message.includes("Unexpected token '<'") || message.includes('not valid JSON') && message.includes('<?xml');
 }
 
 function parseJsonResponse(text) {
@@ -243,7 +311,7 @@ function parseJsonResponse(text) {
     return JSON.parse(body);
   } catch (error) {
     if (body.startsWith('<')) {
-      throw new Error('El servidor devolvió XML en lugar de JSON. Usa una URL CMIS Browser Binding JSON, no una URL AtomPub o Web Services.');
+      throw new Error('El servidor devolvió XML en lugar de JSON. Usa una URL CMIS Browser Binding JSON, no una URL AtomPub o Web Services. Si tu URL termina en /atom/cmis, prueba con /browser.');
     }
 
     throw new Error(`CMIS Browser Binding response is not valid JSON: ${body.slice(0, 120)}`);
@@ -436,5 +504,6 @@ module.exports = {
   normalizeCmisObject,
   extractChildren,
   parseJsonResponse,
+  normalizeBrowserBindingUrl,
   executeCmisRequest
 };
