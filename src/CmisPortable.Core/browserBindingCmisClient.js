@@ -6,6 +6,8 @@ const { ICmisClient } = require('./cmisClient');
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const CMISJS_OPTIONS = { succinct: true };
+const ATOMPUB_FEED_TYPE = 'application/atom+xml;type=feed';
+
 
 /**
  * Cliente CMIS basado en CmisJS.
@@ -27,6 +29,7 @@ class BrowserBindingCmisClient extends ICmisClient {
     this.session = null;
     this.username = null;
     this.password = null;
+    this.delegateClient = null;
 
     if (!this.cmis && !this.sessionFactory) {
       throw new Error('BrowserBindingCmisClient requires the CmisJS package. Install the "cmis" dependency or provide options.cmisModule/options.sessionFactory.');
@@ -41,6 +44,8 @@ class BrowserBindingCmisClient extends ICmisClient {
     this.username = username ?? '';
     this.password = password ?? '';
 
+    this.delegateClient = null;
+    const originalUrl = normalizeBaseUrl(url);
     const configuredUrl = normalizeBrowserBindingUrl(url);
     this.session = this.createSession(configuredUrl);
     if (typeof this.session.setCredentials === 'function') {
@@ -54,6 +59,19 @@ class BrowserBindingCmisClient extends ICmisClient {
         `CmisJS loadRepositories: ${configuredUrl}`
       );
     } catch (error) {
+      if (shouldFallbackToAtomPub(error, originalUrl, configuredUrl)) {
+        const atomPubClient = new AtomPubCmisClient({ timeoutMs: this.timeoutMs });
+        try {
+          const connection = await atomPubClient.ConnectAsync(originalUrl, this.username, this.password);
+          this.delegateClient = atomPubClient;
+          this.repositoryId = connection.repositoryId;
+          this.repositoryUrl = connection.repositoryUrl;
+          this.rootFolderId = connection.rootFolderId;
+          return connection;
+        } catch (atomPubError) {
+          throw await normalizeConnectionError(atomPubError, originalUrl);
+        }
+      }
       throw await normalizeConnectionError(error, configuredUrl);
     }
     const selected = selectRepository(repositories, this.session.defaultRepository, this.repositoryId);
@@ -89,6 +107,9 @@ class BrowserBindingCmisClient extends ICmisClient {
   }
 
   async GetRootFolderAsync() {
+    if (this.delegateClient) {
+      return this.delegateClient.GetRootFolderAsync();
+    }
     this.ensureConnected();
 
     if (this.rootFolderId) {
@@ -116,6 +137,9 @@ class BrowserBindingCmisClient extends ICmisClient {
   }
 
   async ListChildrenAsync(folderId) {
+    if (this.delegateClient) {
+      return this.delegateClient.ListChildrenAsync(folderId);
+    }
     this.ensureConnected();
     if (!folderId) {
       throw new Error('folderId is required to list CMIS children.');
@@ -130,6 +154,9 @@ class BrowserBindingCmisClient extends ICmisClient {
   }
 
   async DownloadDocumentAsync(documentId, targetPath) {
+    if (this.delegateClient) {
+      return this.delegateClient.DownloadDocumentAsync(documentId, targetPath);
+    }
     this.ensureConnected();
     if (!documentId) {
       throw new Error('documentId is required to download a CMIS document.');
@@ -220,6 +247,202 @@ class BrowserBindingCmisClient extends ICmisClient {
   ensureConnected() {
     if (!this.session) {
       throw new Error('ConnectAsync must be called before using the CMIS client.');
+    }
+  }
+
+}
+
+class AtomPubCmisClient extends ICmisClient {
+  constructor(options = {}) {
+    super();
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.serviceUrl = null;
+    this.username = '';
+    this.password = '';
+    this.repositoryId = null;
+    this.repositoryUrl = null;
+    this.rootFolderId = null;
+    this.rootChildrenUrl = null;
+    this.uriTemplates = new Map();
+    this.objectLinks = new Map();
+  }
+
+  async ConnectAsync(url, username, password) {
+    if (!url) {
+      throw new Error('CMIS AtomPub URL is required.');
+    }
+
+    this.serviceUrl = normalizeBaseUrl(url);
+    this.username = username ?? '';
+    this.password = password ?? '';
+
+    const serviceXml = await this.requestText(this.serviceUrl, 'CMIS AtomPub service document');
+    const service = parseAtomPubServiceDocument(serviceXml, this.serviceUrl);
+    this.repositoryId = service.repositoryId;
+    this.rootFolderId = service.rootFolderId;
+    this.repositoryUrl = this.serviceUrl;
+    this.rootChildrenUrl = service.rootChildrenUrl;
+    this.uriTemplates = service.uriTemplates;
+
+    if (!this.repositoryId && !this.rootFolderId && this.uriTemplates.size === 0 && !this.rootChildrenUrl) {
+      throw new Error('La respuesta AtomPub no contiene información de repositorio CMIS reconocible.');
+    }
+
+    if (!this.rootFolderId) {
+      const rootFolder = await this.GetRootFolderAsync();
+      this.rootFolderId = rootFolder.id;
+    }
+
+    return {
+      repositoryId: this.repositoryId,
+      rootFolderId: this.rootFolderId,
+      repositoryUrl: this.repositoryUrl
+    };
+  }
+
+  async GetRootFolderAsync() {
+    this.ensureConnected();
+
+    if (this.rootFolderId) {
+      try {
+        const rootXml = await this.requestText(this.expandTemplate('objectbyid', { id: this.rootFolderId }), 'CMIS AtomPub root object');
+        return this.rememberObjectLinks(parseAtomPubObject(rootXml, 'folder'));
+      } catch (error) {
+        if (!isNotFound(error)) {
+          throw error;
+        }
+      }
+    }
+
+    if (this.rootChildrenUrl) {
+      const rootXml = await this.requestText(this.rootChildrenUrl, 'CMIS AtomPub root collection');
+      const root = parseAtomPubObject(rootXml, 'folder');
+      if (root?.id) {
+        this.rootFolderId = root.id;
+        return this.rememberObjectLinks(root);
+      }
+    }
+
+    throw new Error('No se pudo resolver la carpeta raíz del repositorio CMIS AtomPub.');
+  }
+
+  async ListChildrenAsync(folderId) {
+    this.ensureConnected();
+    if (!folderId) {
+      throw new Error('folderId is required to list CMIS children.');
+    }
+
+    let childrenUrl = this.getObjectLink(folderId, 'down', ATOMPUB_FEED_TYPE);
+    if (!childrenUrl && folderId === this.rootFolderId) {
+      childrenUrl = this.rootChildrenUrl;
+    }
+    if (!childrenUrl) {
+      const folder = await this.fetchObjectById(folderId, 'folder');
+      childrenUrl = this.getObjectLink(folder.id, 'down', ATOMPUB_FEED_TYPE);
+    }
+    if (!childrenUrl) {
+      throw new Error(`No se encontró un enlace AtomPub de hijos para la carpeta CMIS ${folderId}.`);
+    }
+
+    const feedXml = await this.requestText(childrenUrl, `CMIS AtomPub children: ${folderId}`);
+    return parseAtomPubFeedObjects(feedXml).map((object) => this.rememberObjectLinks(object));
+  }
+
+  async DownloadDocumentAsync(documentId, targetPath) {
+    this.ensureConnected();
+    if (!documentId) {
+      throw new Error('documentId is required to download a CMIS document.');
+    }
+    if (!targetPath) {
+      throw new Error('targetPath is required to download a CMIS document.');
+    }
+
+    await fsp.mkdir(path.dirname(targetPath), { recursive: true });
+    let contentUrl = this.getObjectLink(documentId, 'enclosure') ?? this.getObjectLink(documentId, 'edit-media');
+    if (!contentUrl) {
+      const document = await this.fetchObjectById(documentId, 'document');
+      contentUrl = this.getObjectLink(document.id, 'enclosure') ?? this.getObjectLink(document.id, 'edit-media');
+    }
+    if (!contentUrl) {
+      throw new Error(`No se encontró un enlace AtomPub de contenido para el documento CMIS ${documentId}.`);
+    }
+
+    const response = await this.request(contentUrl, `CMIS AtomPub content: ${documentId}`);
+    await fsp.writeFile(targetPath, await responseToBuffer(response));
+  }
+
+  async fetchObjectById(objectId, expectedType) {
+    const objectXml = await this.requestText(this.expandTemplate('objectbyid', { id: objectId }), `CMIS AtomPub object: ${objectId}`);
+    return this.rememberObjectLinks(parseAtomPubObject(objectXml, expectedType));
+  }
+
+  expandTemplate(type, values) {
+    const template = this.uriTemplates.get(type);
+    if (!template) {
+      throw new Error(`El documento AtomPub CMIS no incluye la plantilla URI requerida: ${type}.`);
+    }
+
+    return template.replace(/(?:\{|%7B)([^}%]+)(?:\}|%7D)/gi, (_match, rawName) => {
+      const name = String(rawName).split(',')[0].replace(/[?&]/g, '');
+      const value = values[name] ?? values.id ?? '';
+      return encodeURIComponent(value);
+    });
+  }
+
+  rememberObjectLinks(object) {
+    if (object?.id && object.links?.length) {
+      this.objectLinks.set(object.id, object.links);
+    }
+    return object;
+  }
+
+  getObjectLink(objectId, rel, type) {
+    const links = this.objectLinks.get(objectId) ?? [];
+    const link = links.find((candidate) => candidate.rel === rel && (!type || candidate.type === type))
+      ?? links.find((candidate) => candidate.rel === rel && (!type || String(candidate.type ?? '').startsWith(type.split(';')[0])));
+    return link?.href ?? null;
+  }
+
+  async requestText(url, label) {
+    const response = await this.request(url, label);
+    return response.text();
+  }
+
+  async request(url, label) {
+    let timeout;
+    const timeoutPromise = new Promise((_resolve, reject) => {
+      timeout = setTimeout(() => reject(new Error(`${label} timed out after ${this.timeoutMs} ms.`)), this.timeoutMs);
+    });
+
+    try {
+      return await Promise.race([fetch(url, { headers: this.createHeaders() }).then(async (response) => {
+        if (response.status < 200 || response.status > 299) {
+          const error = new Error(`CMIS AtomPub request failed with HTTP ${response.status}. URL: ${url}.`);
+          error.status = response.status;
+          error.statusCode = response.status;
+          error.statusText = response.statusText;
+          error.url = url;
+          error.responseText = await readResponseText(response);
+          error.response = response;
+          throw error;
+        }
+        return response;
+      }), timeoutPromise]);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  createHeaders() {
+    if (!this.username && !this.password) {
+      return {};
+    }
+    return { Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}` };
+  }
+
+  ensureConnected() {
+    if (!this.serviceUrl) {
+      throw new Error('ConnectAsync must be called before using the CMIS AtomPub client.');
     }
   }
 }
@@ -566,6 +789,139 @@ function createConnectionHttpError(error, configuredUrl) {
   return connectionError;
 }
 
+
+function shouldFallbackToAtomPub(error, originalUrl, configuredUrl) {
+  if (!originalUrl || !configuredUrl || originalUrl === configuredUrl || !looksLikeAtomPubUrl(originalUrl)) {
+    return false;
+  }
+
+  const status = error?.status ?? error?.statusCode ?? error?.response?.status;
+  return status === 404;
+}
+
+function looksLikeAtomPubUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  return parsed.pathname.split('/').some(isAtomBindingSegment);
+}
+
+function parseAtomPubServiceDocument(xml, baseUrl) {
+  const repositoryInfo = firstXmlElement(xml, 'repositoryInfo') ?? '';
+  const repositoryId = xmlText(repositoryInfo, 'repositoryId') ?? xmlText(xml, 'repositoryId');
+  const rootFolderId = xmlText(repositoryInfo, 'rootFolderId') ?? xmlText(xml, 'rootFolderId');
+  const collections = xmlElements(xml, 'collection');
+  const rootCollection = collections.find((collection) => ['root', 'children'].includes(String(xmlText(collection, 'collectionType') ?? '').toLowerCase()));
+  const uriTemplates = new Map();
+
+  for (const uriTemplate of xmlElements(xml, 'uritemplate')) {
+    const type = String(xmlText(uriTemplate, 'type') ?? '').toLowerCase();
+    const template = xmlText(uriTemplate, 'template');
+    if (type && template) {
+      uriTemplates.set(type, resolveXmlUrl(template, baseUrl));
+    }
+  }
+
+  return {
+    repositoryId,
+    rootFolderId,
+    rootChildrenUrl: rootCollection ? resolveXmlUrl(xmlAttribute(rootCollection, 'href'), baseUrl) : null,
+    uriTemplates
+  };
+}
+
+function parseAtomPubFeedObjects(xml) {
+  return xmlElements(xml, 'entry')
+    .map((entry) => parseAtomPubObject(entry))
+    .filter((object) => object.id);
+}
+
+function parseAtomPubObject(xml, expectedType) {
+  const objectXml = firstXmlElement(xml, 'object') ?? xml;
+  const propertiesXml = firstXmlElement(objectXml, 'properties') ?? objectXml;
+  const object = normalizeCmisObject({
+    succinctProperties: {
+      'cmis:objectId': cmisPropertyValue(propertiesXml, 'cmis:objectId') ?? xmlText(xml, 'id'),
+      'cmis:name': cmisPropertyValue(propertiesXml, 'cmis:name') ?? xmlText(xml, 'title'),
+      'cmis:baseTypeId': cmisPropertyValue(propertiesXml, 'cmis:baseTypeId') ?? expectedType,
+      'cmis:objectTypeId': cmisPropertyValue(propertiesXml, 'cmis:objectTypeId'),
+      'cmis:lastModificationDate': cmisPropertyValue(propertiesXml, 'cmis:lastModificationDate'),
+      'cmis:contentStreamLength': cmisPropertyValue(propertiesXml, 'cmis:contentStreamLength')
+    }
+  }, expectedType);
+  object.links = parseAtomPubLinks(xml);
+  return object;
+}
+
+function cmisPropertyValue(xml, propertyDefinitionId) {
+  const property = xmlElements(xml, 'property(?:String|Id|Integer|DateTime|Boolean|Decimal|Html|Uri)')
+    .find((candidate) => xmlAttribute(candidate, 'propertyDefinitionId') === propertyDefinitionId || xmlAttribute(candidate, 'queryName') === propertyDefinitionId);
+  return property ? xmlText(property, 'value') : undefined;
+}
+
+function parseAtomPubLinks(xml) {
+  return xmlElements(xml, 'link')
+    .map((link) => ({
+      rel: xmlAttribute(link, 'rel') ?? '',
+      type: xmlAttribute(link, 'type') ?? '',
+      href: xmlAttribute(link, 'href') ?? ''
+    }))
+    .filter((link) => link.href);
+}
+
+function firstXmlElement(xml, localNamePattern) {
+  return xmlElements(xml, localNamePattern)[0] ?? null;
+}
+
+function xmlElements(xml, localNamePattern) {
+  const pattern = new RegExp(`<([A-Za-z_][\\w.-]*:)?${localNamePattern}\\b[^>]*(?:/>|>[\\s\\S]*?<\\/\\1?${localNamePattern}>)`, 'gi');
+  return Array.from(String(xml ?? '').matchAll(pattern), (match) => match[0]);
+}
+
+function xmlText(xml, localName) {
+  const pattern = new RegExp(`<([A-Za-z_][\\w.-]*:)?${escapeRegExp(localName)}\\b[^>]*>([\\s\\S]*?)<\\/\\1?${escapeRegExp(localName)}>`, 'i');
+  const match = String(xml ?? '').match(pattern);
+  return match ? decodeXmlEntities(stripXmlTags(match[2]).trim()) : undefined;
+}
+
+function xmlAttribute(xml, name) {
+  const pattern = new RegExp(`\\s${escapeRegExp(name)}=(['\"])(.*?)\\1`, 'i');
+  const match = String(xml ?? '').match(pattern);
+  return match ? decodeXmlEntities(match[2]) : undefined;
+}
+
+function resolveXmlUrl(url, baseUrl) {
+  if (!url) {
+    return null;
+  }
+  try {
+    return new URL(url, baseUrl).toString();
+  } catch {
+    return url;
+  }
+}
+
+function stripXmlTags(value) {
+  return String(value ?? '').replace(/<[^>]+>/g, '');
+}
+
+function decodeXmlEntities(value) {
+  return String(value ?? '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function responseToBuffer(response) {
   if (Buffer.isBuffer(response)) {
     return response;
@@ -593,6 +949,7 @@ async function responseToBuffer(response) {
 
 module.exports = {
   BrowserBindingCmisClient,
+  AtomPubCmisClient,
   normalizeCmisObject,
   extractChildren,
   parseJsonResponse,
