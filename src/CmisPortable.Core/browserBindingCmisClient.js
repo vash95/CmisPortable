@@ -7,6 +7,14 @@ const { ICmisClient } = require('./cmisClient');
 const DEFAULT_TIMEOUT_MS = 30_000;
 const CMISJS_OPTIONS = { succinct: true };
 const ATOMPUB_FEED_TYPE = 'application/atom+xml;type=feed';
+const ATOMPUB_OBJECT_BY_ID_DEFAULTS = {
+  filter: '*',
+  includeAllowableActions: 'false',
+  includeACL: 'false',
+  includePolicyIds: 'false',
+  includeRelationships: 'none',
+  renditionFilter: 'cmis:none'
+};
 
 
 /**
@@ -382,11 +390,8 @@ class AtomPubCmisClient extends ICmisClient {
       throw new Error(`El documento AtomPub CMIS no incluye la plantilla URI requerida: ${type}.`);
     }
 
-    return template.replace(/(?:\{|%7B)([^}%]+)(?:\}|%7D)/gi, (_match, rawName) => {
-      const name = String(rawName).split(',')[0].replace(/[?&]/g, '');
-      const value = values[name] ?? values.id ?? '';
-      return encodeURIComponent(value);
-    });
+    const templateValues = getAtomPubTemplateValues(type, values);
+    return expandAtomPubUriTemplate(template, templateValues);
   }
 
   rememberObjectLinks(object) {
@@ -808,6 +813,62 @@ function looksLikeAtomPubUrl(url) {
   }
 
   return parsed.pathname.split('/').some(isAtomBindingSegment);
+}
+
+function getAtomPubTemplateValues(type, values = {}) {
+  const templateValues = type === 'objectbyid' ? { ...ATOMPUB_OBJECT_BY_ID_DEFAULTS } : {};
+  for (const [key, value] of Object.entries(values ?? {})) {
+    if (value !== undefined && value !== null) {
+      templateValues[key] = value;
+    }
+  }
+  return templateValues;
+}
+
+function expandAtomPubUriTemplate(template, values = {}) {
+  return String(template).replace(/(?:\{|%7B)([^}%]+)(?:\}|%7D)/gi, (match, expression, offset, source) => {
+    const operator = expression[0];
+    if (operator === '?' || operator === '&') {
+      const variables = parseTemplateVariables(expression.slice(1));
+      const query = variables
+        .map((name) => [name, templateValue(name, values)])
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([name, value]) => `${encodeURIComponent(name)}=${encodeURIComponent(String(value))}`)
+        .join('&');
+      if (!query) {
+        return '';
+      }
+      const previousCharacter = source[offset - 1];
+      if (previousCharacter === '?' || previousCharacter === '&') {
+        return query;
+      }
+      return `${operator === '&' || source.slice(0, offset).includes('?') ? '&' : '?'}${query}`;
+    }
+
+    const variables = parseTemplateVariables(expression);
+    return variables
+      .map((name) => templateValue(name, values))
+      .filter((value) => value !== undefined && value !== null && value !== '')
+      .map((value) => encodeURIComponent(String(value)))
+      .join(',');
+  });
+}
+
+function parseTemplateVariables(expression) {
+  return String(expression ?? '')
+    .split(',')
+    .map((name) => name.trim().replace(/[*].*$/, '').replace(/:.*/, ''))
+    .filter(Boolean);
+}
+
+function templateValue(name, values) {
+  if (Object.prototype.hasOwnProperty.call(values, name)) {
+    return values[name];
+  }
+  if (name === 'id' || name === 'objectId') {
+    return values.id ?? values.objectId;
+  }
+  return undefined;
 }
 
 function parseAtomPubServiceDocument(xml, baseUrl) {
