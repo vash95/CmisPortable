@@ -162,7 +162,7 @@ class CmisSyncService {
 
     for (const child of children ?? []) {
       const childId = getObjectId(child);
-      const childName = sanitizePathSegment(child.name ?? childId);
+      const childName = getLocalChildName(child, childId);
       const childRemotePath = joinRemotePath(remotePath, childName);
       const childLocalPath = this.safeLocalPath(localPath, childName);
 
@@ -449,9 +449,69 @@ function joinRemotePath(parent, childName) {
   return parent === '/' ? `/${childName}` : `${parent}/${childName}`;
 }
 
+function getLocalChildName(child, fallbackId) {
+  const safeName = sanitizePathSegment(child?.name ?? fallbackId);
+
+  if (!isDocument(child) || hasFileExtension(safeName)) {
+    return safeName;
+  }
+
+  const contentFileNameExtension = getExtensionFromFileName(child?.contentStreamFileName ?? child?.fileName);
+  const mimeTypeExtension = getExtensionFromMimeType(child?.mimeType ?? child?.contentStreamMimeType);
+  const extension = contentFileNameExtension ?? mimeTypeExtension;
+
+  return extension ? `${safeName}${extension}` : safeName;
+}
+
 function sanitizePathSegment(segment) {
   const safe = String(segment).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').trim();
   return safe || 'unnamed';
+}
+
+function hasFileExtension(fileName) {
+  const extension = path.extname(fileName);
+  return extension.length > 1;
+}
+
+function getExtensionFromFileName(fileName) {
+  if (!fileName) {
+    return null;
+  }
+
+  const extension = path.extname(sanitizePathSegment(fileName)).toLowerCase();
+  return extension.length > 1 ? extension : null;
+}
+
+function getExtensionFromMimeType(mimeType) {
+  const normalized = String(mimeType ?? '').split(';')[0].trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  const extensionsByMimeType = {
+    'application/msword': '.doc',
+    'application/octet-stream': '.bin',
+    'application/pdf': '.pdf',
+    'application/rtf': '.rtf',
+    'application/vnd.ms-excel': '.xls',
+    'application/vnd.ms-powerpoint': '.ppt',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/xml': '.xml',
+    'application/zip': '.zip',
+    'image/gif': '.gif',
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/svg+xml': '.svg',
+    'text/csv': '.csv',
+    'text/html': '.html',
+    'text/markdown': '.md',
+    'text/plain': '.txt',
+    'text/xml': '.xml'
+  };
+
+  return extensionsByMimeType[normalized] ?? null;
 }
 
 function ensureInsideRoot(root, targetPath) {
@@ -471,7 +531,7 @@ async function pathExists(targetPath) {
     return true;
   } catch (error) {
     if (error.code === 'ENOENT') {
-      return { download: false, existingFile: true };
+      return false;
     }
     throw error;
   }

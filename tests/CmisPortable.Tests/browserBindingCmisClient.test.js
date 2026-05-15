@@ -21,9 +21,9 @@ test('BrowserBindingCmisClient connects, lists children and downloads content th
   assert.equal(connection.rootFolderId, 'root-folder');
   assert.equal(root.id, 'root-folder');
   assert.equal(root.type, 'folder');
-  assert.deepEqual(children.map((child) => ({ id: child.id, name: child.name, type: child.type })), [
-    { id: 'folder-1', name: 'Projects', type: 'folder' },
-    { id: 'doc-1', name: 'manual.txt', type: 'document' }
+  assert.deepEqual(children.map((child) => ({ id: child.id, name: child.name, type: child.type, contentStreamFileName: child.contentStreamFileName, mimeType: child.mimeType })), [
+    { id: 'folder-1', name: 'Projects', type: 'folder', contentStreamFileName: undefined, mimeType: undefined },
+    { id: 'doc-1', name: 'manual.txt', type: 'document', contentStreamFileName: 'manual.pdf', mimeType: 'application/pdf' }
   ]);
   assert.equal(await fs.readFile(targetPath, 'utf8'), 'browser binding document');
   assert.deepEqual(session.credentials, { username: 'ana', password: 'secret' });
@@ -340,7 +340,11 @@ function cmisObject({ id, name, baseTypeId, size }) {
       'cmis:baseTypeId': baseTypeId,
       'cmis:objectTypeId': baseTypeId,
       'cmis:lastModificationDate': '2026-01-02T00:00:00.000Z',
-      ...(size == null ? {} : { 'cmis:contentStreamLength': size })
+      ...(size == null ? {} : { 'cmis:contentStreamLength': size }),
+      ...(id === 'doc-1' ? {
+        'cmis:contentStreamFileName': 'manual.pdf',
+        'cmis:contentStreamMimeType': 'application/pdf'
+      } : {})
     }
   };
 }
