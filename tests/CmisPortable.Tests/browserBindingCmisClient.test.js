@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { BrowserBindingCmisClient, parseJsonResponse, normalizeBrowserBindingUrl, executeCmisRequest } = require('../../src/CmisPortable.Core/browserBindingCmisClient');
+const { BrowserBindingCmisClient, AtomPubCmisClient, parseJsonResponse, normalizeBrowserBindingUrl, executeCmisRequest } = require('../../src/CmisPortable.Core/browserBindingCmisClient');
 const { CmisSyncService } = require('../../src/CmisPortable.Core/cmisSyncService');
 
 test('BrowserBindingCmisClient connects, lists children and downloads content through CmisJS', async () => {
@@ -111,6 +111,32 @@ test('BrowserBindingCmisClient reports HTTP connection failures with status and 
   );
 });
 
+
+test('AtomPubCmisClient expands objectbyid templates with valid CMIS defaults', () => {
+  const client = new AtomPubCmisClient();
+  client.uriTemplates.set(
+    'objectbyid',
+    'http://127.0.0.1/ic2v11/atom/cmis/default/id?id={id}&filter={filter}&includeAllowableActions={includeAllowableActions}&includeACL={includeACL}&includePolicyIds={includePolicyIds}&includeRelationships={includeRelationships}&renditionFilter={renditionFilter}'
+  );
+
+  assert.equal(
+    client.expandTemplate('objectbyid', { id: '5a40d518-ad12-4c1f-b0ab-01a69ecc03e5' }),
+    'http://127.0.0.1/ic2v11/atom/cmis/default/id?id=5a40d518-ad12-4c1f-b0ab-01a69ecc03e5&filter=*&includeAllowableActions=false&includeACL=false&includePolicyIds=false&includeRelationships=none&renditionFilter=cmis%3Anone'
+  );
+});
+
+test('AtomPubCmisClient expands RFC6570 query objectbyid templates with valid CMIS defaults', () => {
+  const client = new AtomPubCmisClient();
+  client.uriTemplates.set(
+    'objectbyid',
+    'http://127.0.0.1/ic2v11/atom/cmis/default/id{?id,filter,includeAllowableActions,includeACL,includePolicyIds,includeRelationships,renditionFilter}'
+  );
+
+  assert.equal(
+    client.expandTemplate('objectbyid', { id: 'root folder' }),
+    'http://127.0.0.1/ic2v11/atom/cmis/default/id?id=root%20folder&filter=*&includeAllowableActions=false&includeACL=false&includePolicyIds=false&includeRelationships=none&renditionFilter=cmis%3Anone'
+  );
+});
 
 test('BrowserBindingCmisClient falls back to AtomPub when derived Browser Binding URL is missing', async () => {
   const originalFetch = global.fetch;
