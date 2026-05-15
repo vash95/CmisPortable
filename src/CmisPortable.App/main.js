@@ -20,6 +20,10 @@ const MAX_LOG_ENTRIES = 200;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 const appLogoPath = path.join(__dirname, 'assets', 'logo.svg');
 
+function createAppIcon() {
+  return nativeImage.createFromPath(appLogoPath);
+}
+
 
 const mainTranslations = {
   en: {
@@ -44,7 +48,14 @@ const mainTranslations = {
     'log.app.logsCleared': 'Log console cleared.',
     'log.config.loaded': 'Stored credentials and configuration loaded at startup.',
     'log.config.loadFailed': 'Stored credentials could not be loaded at startup.',
-    'log.app.started': 'Application started.'
+    'log.app.started': 'Application started.',
+    'log.app.minimizedToTray': 'Window minimized to the tray icon.',
+    'log.connection.validationStarted': 'Validating CMIS connection.',
+    'log.connection.connected': 'CMIS server responded and repository information was loaded.',
+    'log.connection.rootLoaded': 'CMIS repository root folder loaded.',
+    'log.connection.validationSucceeded': 'CMIS connection validation completed successfully.',
+    'log.connection.validationFailed': 'CMIS connection validation failed.',
+    'log.connection.unknownError': 'Unknown error. Check the log console for diagnostic details.'
   },
   es: {
     'dialog.remoteRoot': 'Raíz del repositorio',
@@ -68,7 +79,14 @@ const mainTranslations = {
     'log.app.logsCleared': 'Consola de log limpiada.',
     'log.config.loaded': 'Credenciales y configuración almacenadas cargadas al iniciar.',
     'log.config.loadFailed': 'No se pudieron cargar las credenciales almacenadas al iniciar.',
-    'log.app.started': 'Aplicación iniciada.'
+    'log.app.started': 'Aplicación iniciada.',
+    'log.app.minimizedToTray': 'Ventana minimizada al icono de la bandeja.',
+    'log.connection.validationStarted': 'Validando conexión CMIS.',
+    'log.connection.connected': 'El servidor CMIS respondió y se cargó la información del repositorio.',
+    'log.connection.rootLoaded': 'Carpeta raíz del repositorio CMIS cargada.',
+    'log.connection.validationSucceeded': 'Validación de conexión CMIS completada correctamente.',
+    'log.connection.validationFailed': 'Falló la validación de conexión CMIS.',
+    'log.connection.unknownError': 'Error desconocido. Revisa la consola de log para ver los detalles de diagnóstico.'
   }
 };
 
@@ -140,7 +158,7 @@ function createWindow() {
     minWidth: 940,
     minHeight: 680,
     title: 'CmisPortable',
-    icon: nativeImage.createFromPath(appLogoPath),
+    icon: createAppIcon(),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -158,7 +176,7 @@ function createWindow() {
   mainWindow.on('minimize', (event) => {
     if (shouldRunInBackgroundOnClose) {
       event.preventDefault();
-      mainWindow.hide();
+      minimizeMainWindowToTray();
     }
   });
 
@@ -169,7 +187,7 @@ function createWindow() {
 
     if (shouldRunInBackgroundOnClose) {
       event.preventDefault();
-      mainWindow.hide();
+      minimizeMainWindowToTray();
       return;
     }
 
@@ -178,11 +196,15 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(appLogoPath);
-  tray = new Tray(icon);
+  if (tray) {
+    return tray;
+  }
+
+  tray = new Tray(createAppIcon());
   tray.setToolTip('CmisPortable');
   updateTrayMenu();
   tray.on('double-click', showMainWindow);
+  return tray;
 }
 
 function updateTrayMenu() {
@@ -212,6 +234,15 @@ function updateTrayMenu() {
       }
     }
   ]));
+}
+
+
+function minimizeMainWindowToTray() {
+  createTray();
+  mainWindow?.hide();
+  logInfo('app', mt('log.app.minimizedToTray'));
+  updateTrayMenu();
+  return true;
 }
 
 function showMainWindow() {
@@ -296,15 +327,41 @@ function registerIpc() {
   });
 
   ipcMain.handle('connection:test', async (_event, draft = {}) => {
+    const diagnostics = createConnectionDiagnostics(draft);
+    let phase = 'connect';
+    logInfo('connection', mt('log.connection.validationStarted'), diagnostics);
+
     try {
       const client = createCmisClient();
-      await client.ConnectAsync(draft.cmisUrl, draft.username, draft.secretValue ?? '');
-      await client.GetRootFolderAsync();
+      const connection = await client.ConnectAsync(draft.cmisUrl, draft.username, draft.secretValue ?? '');
+      logInfo('connection', mt('log.connection.connected'), {
+        ...diagnostics,
+        repositoryId: connection?.repositoryId ?? null,
+        rootFolderId: connection?.rootFolderId ?? null,
+        repositoryUrl: connection?.repositoryUrl ?? null
+      });
+
+      phase = 'root-folder';
+      const rootFolder = await client.GetRootFolderAsync();
+      logInfo('connection', mt('log.connection.rootLoaded'), {
+        id: getObjectId(rootFolder),
+        name: rootFolder?.name ?? '/',
+        type: rootFolder?.type ?? rootFolder?.baseTypeId ?? null
+      });
+
+      logInfo('connection', mt('log.connection.validationSucceeded'), diagnostics);
       return { valid: true };
     } catch (error) {
+      const message = sanitizeConnectionError(error);
+      logEntry('error', 'connection', mt('log.connection.validationFailed'), {
+        ...diagnostics,
+        phase,
+        message,
+        error: serializeLogDetails(error)
+      });
       return {
         valid: false,
-        message: sanitizeConnectionError(error)
+        message
       };
     }
   });
@@ -323,10 +380,7 @@ function registerIpc() {
     return result.canceled ? null : result.filePaths[0];
   });
 
-  ipcMain.handle('window:minimizeToTray', () => {
-    mainWindow?.hide();
-    return true;
-  });
+  ipcMain.handle('window:minimizeToTray', () => minimizeMainWindowToTray());
 
   ipcMain.handle('window:quit', () => {
     logInfo('app', mt('log.app.quitRequested'));
@@ -405,6 +459,17 @@ function joinRemotePath(parent, name) {
   return `/${[cleanParent.replace(/^\//, ''), cleanName].filter(Boolean).join('/')}`;
 }
 
+function createConnectionDiagnostics(draft = {}) {
+  const cmisUrl = String(draft.cmisUrl ?? '').trim();
+  const username = String(draft.username ?? '').trim();
+  return {
+    cmisUrl: cmisUrl || null,
+    username: username || null,
+    hasPassword: Boolean(draft.secretValue),
+    timestamp: new Date().toISOString()
+  };
+}
+
 function createAppLogger(source) {
   return {
     info(message, details) {
@@ -445,7 +510,8 @@ function logEntry(level, source, message, details) {
 }
 
 function sanitizeConnectionError(error) {
-  return String(error?.message ?? error ?? '').replace(/^Error invoking remote method '[^']+':\s*/, '');
+  const message = String(error?.message ?? error ?? '').replace(/^Error invoking remote method '[^']+':\s*/, '').trim();
+  return message || mt('log.connection.unknownError');
 }
 
 function serializeLogDetails(details) {
@@ -457,7 +523,10 @@ function serializeLogDetails(details) {
     return {
       name: details.name,
       message: details.message,
-      code: details.code ?? details.statusCode ?? details.status ?? null
+      code: details.code ?? details.statusCode ?? details.status ?? null,
+      status: details.status ?? details.statusCode ?? null,
+      responseText: details.text ?? details.responseText ?? null,
+      stack: details.stack ?? null
     };
   }
 
