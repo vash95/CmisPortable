@@ -76,6 +76,41 @@ test('BrowserBindingCmisClient rewrites XML JSON parser failures with CMIS guida
   );
 });
 
+
+test('BrowserBindingCmisClient reports HTTP connection failures with status and response body', async () => {
+  const response = {
+    status: 404,
+    statusText: '',
+    url: 'http://127.0.0.1/ic2v11/browser',
+    clone() {
+      return { text: async () => 'Not Found' };
+    }
+  };
+  const client = new BrowserBindingCmisClient({
+    sessionFactory: () => ({
+      setCredentials() {},
+      loadRepositories() {
+        const error = new Error('');
+        error.name = 'HTTPError';
+        error.response = response;
+        return Promise.reject(error);
+      }
+    })
+  });
+
+  await assert.rejects(
+    () => client.ConnectAsync('http://127.0.0.1/ic2v11/atom/cmis', 'ana', 'secret'),
+    (error) => {
+      assert.match(error.message, /HTTP 404/);
+      assert.match(error.message, /URL usada: http:\/\/127\.0\.0\.1\/ic2v11\/browser/);
+      assert.match(error.message, /Respuesta: Not Found/);
+      assert.equal(error.status, 404);
+      assert.equal(error.responseText, 'Not Found');
+      return true;
+    }
+  );
+});
+
 test('CmisSyncService can sync folders and documents using BrowserBindingCmisClient with CmisJS', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-js-sync-test-'));
   const client = new BrowserBindingCmisClient({ sessionFactory: (url) => new FakeCmisSession(url) });

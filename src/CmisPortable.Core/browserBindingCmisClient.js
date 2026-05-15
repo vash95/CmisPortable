@@ -54,7 +54,7 @@ class BrowserBindingCmisClient extends ICmisClient {
         `CmisJS loadRepositories: ${configuredUrl}`
       );
     } catch (error) {
-      throw normalizeConnectionError(error, configuredUrl);
+      throw await normalizeConnectionError(error, configuredUrl);
     }
     const selected = selectRepository(repositories, this.session.defaultRepository, this.repositoryId);
 
@@ -293,12 +293,18 @@ function isAtomBindingSegment(segment) {
   return ['atom', 'atompub'].includes(String(segment ?? '').toLowerCase());
 }
 
-function normalizeConnectionError(error, configuredUrl) {
-  if (isXmlJsonParseError(error)) {
+async function normalizeConnectionError(error, configuredUrl) {
+  const enrichedError = await enrichCmisError(error);
+
+  if (isXmlJsonParseError(enrichedError)) {
     return new Error(`El servidor devolvió XML en lugar de JSON desde ${configuredUrl}. CmisPortable necesita una URL CMIS Browser Binding JSON; si tu URL original termina en /atom/cmis, usa /browser.`);
   }
 
-  return error;
+  if (enrichedError?.response) {
+    return createConnectionHttpError(enrichedError, configuredUrl);
+  }
+
+  return enrichedError;
 }
 
 function isXmlJsonParseError(error) {
@@ -450,7 +456,7 @@ function isNotFound(error) {
 
 function executeCmisRequest(request) {
   if (isPromiseLike(request)) {
-    return request;
+    return request.catch(async (error) => { throw await enrichCmisError(error); });
   }
 
   if (request && typeof request.ok === 'function') {
@@ -475,8 +481,89 @@ function createCmisHttpError(response) {
   const error = new Error(`CMIS Browser Binding request failed${status ? ` with HTTP ${status}` : ''}${text ? `: ${String(text).slice(0, 500)}` : ''}`);
   error.status = status;
   error.statusCode = status;
+  error.statusText = response?.statusText ?? null;
+  error.url = response?.url ?? null;
+  error.responseText = text || null;
   error.response = response;
   return error;
+}
+
+async function enrichCmisError(error) {
+  if (!error?.response) {
+    return error;
+  }
+
+  const status = error.response.status ?? error.status ?? error.statusCode ?? null;
+  const statusText = error.response.statusText ?? error.statusText ?? '';
+  const responseText = error.responseText ?? error.text ?? await readResponseText(error.response);
+  const message = buildCmisHttpErrorMessage(status, statusText, responseText, error.response.url);
+  const enrichedError = new Error(message);
+  enrichedError.name = error.name ?? 'HTTPError';
+  enrichedError.code = error.code ?? null;
+  enrichedError.status = status;
+  enrichedError.statusCode = status;
+  enrichedError.statusText = statusText || null;
+  enrichedError.url = error.response.url ?? null;
+  enrichedError.responseText = responseText || null;
+  enrichedError.response = error.response;
+  enrichedError.cause = error;
+  return enrichedError;
+}
+
+async function readResponseText(response) {
+  if (!response) {
+    return '';
+  }
+
+  try {
+    if (typeof response.clone === 'function') {
+      return await response.clone().text();
+    }
+    if (typeof response.text === 'function') {
+      return await response.text();
+    }
+  } catch {
+    return '';
+  }
+
+  return typeof response.text === 'string' ? response.text : '';
+}
+
+function buildCmisHttpErrorMessage(status, statusText, responseText, url) {
+  const statusPart = status ? `HTTP ${status}` : 'HTTP';
+  const reason = String(statusText || responseText || '').trim();
+  const reasonPart = reason ? `: ${reason.slice(0, 500)}` : '';
+  const urlPart = url ? ` URL: ${url}.` : '';
+  return `CMIS Browser Binding request failed with ${statusPart}${reasonPart}.${urlPart}`;
+}
+
+function createConnectionHttpError(error, configuredUrl) {
+  const status = error.status ?? error.statusCode ?? error.response?.status;
+  let message;
+  if (status === 401 || status === 403) {
+    message = `No se pudo autenticar contra el servidor CMIS (HTTP ${status}). Revisa usuario, contraseña y permisos. URL usada: ${configuredUrl}.`;
+  } else if (status === 404) {
+    message = `El endpoint CMIS Browser Binding no existe o no es accesible (HTTP 404). URL usada: ${configuredUrl}. Si tu servidor solo ofrece AtomPub, confirma la ruta Browser Binding correcta.`;
+  } else {
+    message = `El servidor CMIS rechazó la conexión${status ? ` con HTTP ${status}` : ''}. URL usada: ${configuredUrl}.`;
+  }
+
+  const responseText = String(error.responseText ?? '').trim();
+  if (responseText) {
+    message += ` Respuesta: ${responseText.slice(0, 500)}`;
+  }
+
+  const connectionError = new Error(message);
+  connectionError.name = error.name ?? 'HTTPError';
+  connectionError.code = error.code ?? null;
+  connectionError.status = status ?? null;
+  connectionError.statusCode = status ?? null;
+  connectionError.statusText = error.statusText ?? error.response?.statusText ?? null;
+  connectionError.url = error.url ?? error.response?.url ?? configuredUrl;
+  connectionError.responseText = error.responseText ?? null;
+  connectionError.response = error.response;
+  connectionError.cause = error;
+  return connectionError;
 }
 
 async function responseToBuffer(response) {
