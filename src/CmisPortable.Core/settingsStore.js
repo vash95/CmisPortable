@@ -31,7 +31,7 @@ class SettingsStore {
     const validation = validateSettings({
       ...plainSettings,
       secret: {
-        kind: plainSettings.secretKind ?? 'password',
+        kind: 'password',
         protectedValue: protectedSecret.value,
         storage: protectedSecret.storage
       }

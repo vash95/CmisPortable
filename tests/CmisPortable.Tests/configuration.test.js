@@ -14,6 +14,13 @@ test('normalizeSettings applies the default one minute sync interval', () => {
   assert.deepEqual(settings.remoteFolder, { id: '', name: '/', path: '/' });
 });
 
+
+test('normalizeSettings always treats credentials as passwords', () => {
+  const settings = normalizeSettings({ secret: { kind: 'token', protectedValue: 'stored' } });
+  assert.equal(settings.secret.kind, 'password');
+  assert.equal(settings.secret.protectedValue, 'stored');
+});
+
 test('validateSettings rejects missing required wizard fields', () => {
   const result = validateSettings({});
   assert.equal(result.valid, false);
@@ -97,6 +104,7 @@ test('SettingsStore persists configuration and delegates secrets to secure stora
   const revealed = await store.revealSecret(loaded);
 
   assert.equal(saved.secret.storage, 'test-secure-storage');
+  assert.equal(saved.secret.kind, 'password');
   assert.equal(loaded.secret.protectedValue, 'protected:secret-token');
   assert.equal(revealed, 'secret-token');
   assert.deepEqual(calls, [
