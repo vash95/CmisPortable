@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { BrowserBindingCmisClient, parseJsonResponse, executeCmisRequest } = require('../../src/CmisPortable.Core/browserBindingCmisClient');
+const { BrowserBindingCmisClient, parseJsonResponse, normalizeBrowserBindingUrl, executeCmisRequest } = require('../../src/CmisPortable.Core/browserBindingCmisClient');
 const { CmisSyncService } = require('../../src/CmisPortable.Core/cmisSyncService');
 
 test('BrowserBindingCmisClient connects, lists children and downloads content through CmisJS', async () => {
@@ -30,6 +30,18 @@ test('BrowserBindingCmisClient connects, lists children and downloads content th
   assert.equal(session.url, 'http://127.0.0.1/cmis/browser');
 });
 
+test('BrowserBindingCmisClient converts common AtomPub endpoints to Browser Binding URLs', async () => {
+  const session = new FakeCmisSession('http://127.0.0.1/ic2v11/browser');
+  const client = new BrowserBindingCmisClient({ sessionFactory: () => session });
+
+  await client.ConnectAsync('http://127.0.0.1/ic2v11/atom/cmis', 'ana', 'secret');
+
+  assert.equal(session.url, 'http://127.0.0.1/ic2v11/browser');
+  assert.equal(normalizeBrowserBindingUrl('http://127.0.0.1/ic2v11/atom/cmis/'), 'http://127.0.0.1/ic2v11/browser');
+  assert.equal(normalizeBrowserBindingUrl('http://127.0.0.1/ic2v11/atom'), 'http://127.0.0.1/ic2v11/browser');
+  assert.equal(normalizeBrowserBindingUrl('http://127.0.0.1/ic2v11/browser'), 'http://127.0.0.1/ic2v11/browser');
+});
+
 test('BrowserBindingCmisClient supports CmisJS 0.x CmisRequest callbacks', async () => {
   const request = createLegacyCmisRequest({ ok: true });
   assert.deepEqual(await executeCmisRequest(request), { ok: true });
@@ -44,6 +56,22 @@ test('BrowserBindingCmisClient reports XML responses as Browser Binding URL erro
   assert.throws(
     () => parseJsonResponse('<?xml version="1.0"?><service />'),
     /El servidor devolvió XML en lugar de JSON/
+  );
+});
+
+test('BrowserBindingCmisClient rewrites XML JSON parser failures with CMIS guidance', async () => {
+  const client = new BrowserBindingCmisClient({
+    sessionFactory: () => ({
+      setCredentials() {},
+      async loadRepositories() {
+        throw new SyntaxError(`Unexpected token '<', "<?xml vers"... is not valid JSON`);
+      }
+    })
+  });
+
+  await assert.rejects(
+    () => client.ConnectAsync('http://127.0.0.1/ic2v11/custom', 'ana', 'secret'),
+    /CmisPortable necesita una URL CMIS Browser Binding JSON/
   );
 });
 
