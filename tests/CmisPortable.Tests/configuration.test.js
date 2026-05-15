@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { validateSettings, normalizeSettings } = require('../../src/CmisPortable.Core/configuration');
+const { validateSettings, normalizeSettings, completeIc2v11AtomPubUrl } = require('../../src/CmisPortable.Core/configuration');
 const { resolveLocale } = require('../../src/CmisPortable.Core/i18n');
 const { SettingsStore } = require('../../src/CmisPortable.Core/settingsStore');
 
@@ -14,6 +14,20 @@ test('normalizeSettings applies the default one minute sync interval', () => {
   assert.deepEqual(settings.remoteFolder, { id: '', name: '/', path: '/' });
 });
 
+test('normalizeSettings autocompletes bare ic2v11 CMIS URLs to AtomPub endpoints', () => {
+  assert.equal(
+    normalizeSettings({ cmisUrl: 'https://example.test/ic2v11' }).cmisUrl,
+    'https://example.test/ic2v11/atom/cmis'
+  );
+  assert.equal(
+    completeIc2v11AtomPubUrl('https://example.test/ic2v11/'),
+    'https://example.test/ic2v11/atom/cmis'
+  );
+  assert.equal(
+    completeIc2v11AtomPubUrl('https://example.test/ic2v11/atom/cmis'),
+    'https://example.test/ic2v11/atom/cmis'
+  );
+});
 
 test('normalizeSettings always treats credentials as passwords', () => {
   const settings = normalizeSettings({ secret: { kind: 'token', protectedValue: 'stored' } });

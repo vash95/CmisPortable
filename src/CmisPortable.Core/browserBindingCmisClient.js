@@ -268,6 +268,11 @@ function getBrowserBindingUrlCandidate(url) {
 
 function toBrowserBindingPath(pathname) {
   const segments = String(pathname ?? '').split('/');
+  const nonEmptySegments = segments.filter((segment) => segment.length > 0);
+  if (nonEmptySegments.length === 1 && nonEmptySegments[0].toLowerCase() === 'ic2v11') {
+    return '/ic2v11/browser';
+  }
+
   const atomIndex = segments.findIndex((segment) => isAtomBindingSegment(segment));
   if (atomIndex === -1) {
     return null;

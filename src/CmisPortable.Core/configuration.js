@@ -33,7 +33,7 @@ function normalizeSettings(input = {}) {
 
   return {
     ...defaults,
-    cmisUrl: String(input.cmisUrl ?? defaults.cmisUrl).trim(),
+    cmisUrl: completeIc2v11AtomPubUrl(input.cmisUrl ?? defaults.cmisUrl),
     username: String(input.username ?? defaults.username).trim(),
     localFolder: String(input.localFolder ?? defaults.localFolder).trim(),
     remoteFolder: normalizeRemoteFolder(input.remoteFolder, input.remoteFolderId),
@@ -85,6 +85,30 @@ function validateSettings(input = {}, options = {}) {
   };
 }
 
+function completeIc2v11AtomPubUrl(value) {
+  const cmisUrl = String(value ?? '').trim();
+  if (!cmisUrl) {
+    return '';
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(cmisUrl);
+  } catch {
+    return cmisUrl;
+  }
+
+  const segments = parsed.pathname.split('/').filter(Boolean);
+  if (segments.length === 1 && segments[0].toLowerCase() === 'ic2v11') {
+    parsed.pathname = '/ic2v11/atom/cmis';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/+$/, '');
+  }
+
+  return cmisUrl;
+}
+
 function normalizeRemoteFolder(remoteFolder = {}, legacyRemoteFolderId = '') {
   const id = String(remoteFolder?.id ?? legacyRemoteFolderId ?? '').trim();
   const rawPath = String(remoteFolder?.path ?? '/').trim() || '/';
@@ -105,5 +129,6 @@ module.exports = {
   createDefaultSettings,
   normalizeSettings,
   validateSettings,
+  completeIc2v11AtomPubUrl,
   normalizeRemoteFolder
 };

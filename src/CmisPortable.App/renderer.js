@@ -8,7 +8,7 @@ const translations = {
     'action.minimizeToTray': 'Minimize to tray',
     'action.quitApp': 'Close application',
     'field.cmisUrl': 'CMIS URL',
-    'placeholder.cmisUrl': 'https://server/cmis/browser',
+    'placeholder.cmisUrl': 'https://server/ic2v11/atom/cmis',
     'field.username': 'Username',
     'field.secretValue': 'Password',
     'field.localFolder': 'Local sync folder',
@@ -100,7 +100,7 @@ const translations = {
     'action.minimizeToTray': 'Minimizar a bandeja',
     'action.quitApp': 'Cerrar aplicación',
     'field.cmisUrl': 'URL CMIS',
-    'placeholder.cmisUrl': 'https://servidor/cmis/browser',
+    'placeholder.cmisUrl': 'https://servidor/ic2v11/atom/cmis',
     'field.username': 'Usuario',
     'field.secretValue': 'Contraseña',
     'field.localFolder': 'Carpeta local de sincronización',
@@ -242,9 +242,40 @@ const metrics = {
   deleted: document.querySelector('#filesDeleted')
 };
 
+function completeIc2v11AtomPubUrl(value) {
+  const cmisUrl = String(value ?? '').trim();
+  if (!cmisUrl) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(cmisUrl);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (segments.length === 1 && segments[0].toLowerCase() === 'ic2v11') {
+      parsed.pathname = '/ic2v11/atom/cmis';
+      parsed.search = '';
+      parsed.hash = '';
+      return parsed.toString().replace(/\/+$/, '');
+    }
+  } catch {
+    return cmisUrl;
+  }
+
+  return cmisUrl;
+}
+
+function autocompleteCmisUrlField() {
+  const completedUrl = completeIc2v11AtomPubUrl(fields.cmisUrl.value);
+  if (completedUrl !== fields.cmisUrl.value) {
+    fields.cmisUrl.value = completedUrl;
+    resetConnectionValidation();
+  }
+  return completedUrl;
+}
+
 function collectSettings() {
   return {
-    cmisUrl: fields.cmisUrl.value,
+    cmisUrl: completeIc2v11AtomPubUrl(fields.cmisUrl.value),
     username: fields.username.value,
     secretKind: 'password',
     secretValue: fields.secretValue.value,
@@ -260,7 +291,7 @@ function collectSettings() {
 }
 
 function applySettings(settings) {
-  fields.cmisUrl.value = settings.cmisUrl ?? '';
+  fields.cmisUrl.value = completeIc2v11AtomPubUrl(settings.cmisUrl ?? '');
   fields.username.value = settings.username ?? '';
   fields.secretValue.value = settings.secretValue ?? '';
   fields.localFolder.value = settings.localFolder ?? '';
@@ -516,6 +547,7 @@ document.querySelector('#chooseFolder').addEventListener('click', async () => {
 });
 
 fields.syncIntervalSeconds.addEventListener('input', updateIntervalLabel);
+fields.cmisUrl.addEventListener('blur', autocompleteCmisUrlField);
 
 document.querySelector('#validate').addEventListener('click', validateConnectionOnly);
 

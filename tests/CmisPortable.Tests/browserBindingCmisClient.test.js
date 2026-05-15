@@ -38,6 +38,7 @@ test('BrowserBindingCmisClient converts common AtomPub endpoints to Browser Bind
 
   assert.equal(session.url, 'http://127.0.0.1/ic2v11/browser');
   assert.equal(normalizeBrowserBindingUrl('http://127.0.0.1/ic2v11/atom/cmis/'), 'http://127.0.0.1/ic2v11/browser');
+  assert.equal(normalizeBrowserBindingUrl('http://127.0.0.1/ic2v11'), 'http://127.0.0.1/ic2v11/browser');
   assert.equal(normalizeBrowserBindingUrl('http://127.0.0.1/ic2v11/atom'), 'http://127.0.0.1/ic2v11/browser');
   assert.equal(normalizeBrowserBindingUrl('http://127.0.0.1/ic2v11/browser'), 'http://127.0.0.1/ic2v11/browser');
 });
