@@ -640,6 +640,8 @@ function normalizeCmisObject(object, fallbackType = null) {
     lastModified: propertyValue(object, properties, succinct, 'cmis:lastModificationDate') ?? object?.lastModified ?? object?.lastModificationDate,
     size: propertyValue(object, properties, succinct, 'cmis:contentStreamLength') ?? object?.size ?? object?.contentStreamLength,
     contentHash: firstValue(propertyValue(object, properties, succinct, 'cmis:contentStreamHash')) ?? object?.contentHash ?? object?.hash,
+    contentStreamFileName: propertyValue(object, properties, succinct, 'cmis:contentStreamFileName') ?? object?.contentStreamFileName ?? object?.fileName,
+    mimeType: propertyValue(object, properties, succinct, 'cmis:contentStreamMimeType') ?? object?.mimeType ?? object?.contentStreamMimeType,
     raw: object
   };
 }
@@ -911,7 +913,9 @@ function parseAtomPubObject(xml, expectedType) {
       'cmis:baseTypeId': cmisPropertyValue(propertiesXml, 'cmis:baseTypeId') ?? expectedType,
       'cmis:objectTypeId': cmisPropertyValue(propertiesXml, 'cmis:objectTypeId'),
       'cmis:lastModificationDate': cmisPropertyValue(propertiesXml, 'cmis:lastModificationDate'),
-      'cmis:contentStreamLength': cmisPropertyValue(propertiesXml, 'cmis:contentStreamLength')
+      'cmis:contentStreamLength': cmisPropertyValue(propertiesXml, 'cmis:contentStreamLength'),
+      'cmis:contentStreamFileName': cmisPropertyValue(propertiesXml, 'cmis:contentStreamFileName'),
+      'cmis:contentStreamMimeType': cmisPropertyValue(propertiesXml, 'cmis:contentStreamMimeType')
     }
   }, expectedType);
   object.links = parseAtomPubLinks(xml);

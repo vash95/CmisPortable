@@ -41,6 +41,46 @@ test('CmisSyncService creates folders, downloads documents and writes the index'
   assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.remotePath === '/Projects/readme.txt'), true);
 });
 
+
+test('CmisSyncService appends an extension to extensionless downloaded documents', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-sync-test-'));
+  const client = createFakeClient({
+    '/': [
+      {
+        id: 'doc-1',
+        name: 'Contrato',
+        type: 'document',
+        contentStreamFileName: 'contrato.pdf',
+        mimeType: 'application/pdf',
+        lastModified: '2026-01-02T00:00:00Z',
+        size: 12
+      },
+      {
+        id: 'doc-2',
+        name: 'Notas',
+        type: 'document',
+        mimeType: 'text/plain',
+        lastModified: '2026-01-02T00:00:00Z',
+        size: 5
+      }
+    ]
+  }, {
+    'doc-1': 'pdf content!',
+    'doc-2': 'notes'
+  });
+  const service = new CmisSyncService({ cmisClient: client, localRoot: tempDir, retryDelayMs: 1 });
+
+  const result = await service.sync({ url: 'https://example.test/cmis', username: 'ana', password: 'secret' });
+
+  assert.equal(result.errors.length, 0);
+  assert.equal(await fs.readFile(path.join(tempDir, 'Contrato.pdf'), 'utf8'), 'pdf content!');
+  assert.equal(await fs.readFile(path.join(tempDir, 'Notas.txt'), 'utf8'), 'notes');
+
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.localPath === 'Contrato.pdf'), true);
+  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-2' && entry.remotePath === '/Notas.txt'), true);
+});
+
 test('CmisSyncService updates modified documents and removes items missing from CMIS', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-sync-test-'));
   const client = createFakeClient({
