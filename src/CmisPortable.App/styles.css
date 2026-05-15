@@ -445,3 +445,88 @@ button:hover { background: var(--primary-strong); }
     flex: 1 1 auto;
   }
 }
+
+.connection-list {
+  margin-top: 20px;
+}
+
+.connection-list-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.configured-connections {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.connection-card,
+.connection-empty {
+  background: #020617;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.connection-empty {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.connection-title-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.connection-title-row strong {
+  color: #bfdbfe;
+  overflow-wrap: anywhere;
+}
+
+.connection-details {
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 14px 0 0;
+}
+
+.connection-details dt {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.connection-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.log-toggle {
+  width: 100%;
+}
+
+.log-content {
+  margin-top: 18px;
+}
+
+.log-console.is-collapsed {
+  padding: 16px;
+}
+
+.log-console.is-collapsed .log-content {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .connection-title-row,
+  .connection-details {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+}
