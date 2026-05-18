@@ -104,16 +104,15 @@
             </div>
             <footer class="actions">
               <button class="ghost" type="button" data-next-step="folders" data-i18n="action.backFolders">Back: source and path</button>
-              <button class="primary" type="button" data-next-step="manage" data-i18n="action.nextManage">Next: add or delete</button>
+              <button class="primary" type="button" data-next-step="manage" data-i18n="action.nextManage">Next: save</button>
             </footer>
           </section>
 
           <section class="wizard-step" data-step="manage">
-            <h2 data-i18n="wizard.manage.title">4. Add a new option or delete the current one</h2>
-            <p data-i18n="wizard.manage.description">Save this setup as the active sync option, or remove the current connection and start over.</p>
+            <h2 data-i18n="wizard.manage.title">4. Save this option</h2>
+            <p data-i18n="wizard.manage.description">Save this setup as the active sync option. Saved connections can be deleted from Configured connections.</p>
             <footer class="actions">
               <button class="ghost" type="button" data-next-step="schedule" data-i18n="action.backSchedule">Back: sync time</button>
-              <button id="clearConnection" class="secondary danger" type="button" data-i18n="action.clearConnection">Remove current connection</button>
               <button class="primary" type="submit" data-i18n="action.saveConnection">Save new connection</button>
             </footer>
           </section>
@@ -123,7 +122,7 @@
           <div class="connection-list-header">
             <div>
               <h2 id="configuredConnectionsTitle" data-i18n="connections.title">Configured connections</h2>
-              <p data-i18n="connections.description">Saved CMIS sync options available in this app.</p>
+              <p data-i18n="connections.description">Saved CMIS sync options available in this app. Delete a connection here when you no longer need it.</p>
             </div>
           </div>
           <ol id="configuredConnections" class="configured-connections" aria-live="polite" aria-label="Configured connections" data-i18n-aria-label="connections.title"></ol>

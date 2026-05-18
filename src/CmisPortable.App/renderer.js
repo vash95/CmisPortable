@@ -17,14 +17,14 @@ const translations = {
     'action.chooseFolder': 'Choose…',
     'field.syncInterval': 'Sync interval (10 to 60 seconds)',
     'field.runInBackground': 'Keep running in the background when the window is closed',
-    'action.clearConnection': 'Remove current connection',
+    'action.clearConnection': 'Delete configured connection',
     'action.validate': 'Validate',
     'action.validateConnection': 'Validate connection',
     'action.nextFolders': 'Next: source folders',
     'action.backConnection': 'Back: connection',
     'action.nextSchedule': 'Next: sync time',
     'action.backFolders': 'Back: source and path',
-    'action.nextManage': 'Next: add or delete',
+    'action.nextManage': 'Next: save',
     'action.backSchedule': 'Back: sync time',
     'action.loadRemoteFolders': 'Show source folders',
     'action.selectRemoteRoot': 'Use repository root',
@@ -41,7 +41,7 @@ const translations = {
     'action.forceSync': 'Sync now',
     'action.refreshStatus': 'View latest status',
     'connections.title': 'Configured connections',
-    'connections.description': 'Saved CMIS sync options available in this app.',
+    'connections.description': 'Saved CMIS sync options available in this app. Delete a connection here when you no longer need it.',
     'connections.empty': 'No configured connections yet. Save a new connection to see it here.',
     'connections.active': 'Active',
     'connections.url': 'URL',
@@ -69,9 +69,9 @@ const translations = {
     'message.syncPaused': 'Background sync paused.',
     'message.manualSyncDone': 'Manual sync executed.',
     'message.statusRefreshed': 'Latest status refreshed.',
-    'message.clearConfirm': 'The current connection and stored credentials will be removed. You can create a new connection afterwards. Continue?',
-    'message.connectionCleared': 'Current connection removed. Enter the details to create a new connection.',
-    'message.connectionClearFailed': (message) => `Current connection could not be removed: ${message}`,
+    'message.clearConfirm': 'This configured connection and its stored credentials will be deleted. You can create a new connection afterwards. Continue?',
+    'message.connectionCleared': 'Configured connection deleted. Enter the details to create a new connection.',
+    'message.connectionClearFailed': (message) => `Configured connection could not be deleted: ${message}`,
     'message.connectionSaved': 'New connection saved. Credentials will be remembered when you reopen the application.',
     'message.existingLoaded': 'Existing configuration and stored credentials loaded.',
     'message.loadFailed': (message) => `Configuration could not be loaded: ${message}`,
@@ -92,8 +92,8 @@ const translations = {
     'wizard.folders.description': 'Load the CMIS source folders, pick where synchronization should start, then choose the local destination.',
     'wizard.schedule.title': '3. Synchronization time',
     'wizard.schedule.description': 'Choose how often the app checks CMIS and whether it keeps running in the background.',
-    'wizard.manage.title': '4. Add a new option or delete the current one',
-    'wizard.manage.description': 'Save this setup as the active sync option, or remove the current connection and start over.',
+    'wizard.manage.title': '4. Save this option',
+    'wizard.manage.description': 'Save this setup as the active sync option. Saved connections can be deleted from Configured connections.',
     'state.idle': 'Not started',
     'state.scheduled': 'Scheduled',
     'state.running': 'Running',
@@ -120,14 +120,14 @@ const translations = {
     'action.chooseFolder': 'Elegir…',
     'field.syncInterval': 'Intervalo de sincronización (10 a 60 segundos)',
     'field.runInBackground': 'Seguir ejecutando en segundo plano al cerrar la ventana',
-    'action.clearConnection': 'Eliminar conexión actual',
+    'action.clearConnection': 'Eliminar conexión configurada',
     'action.validate': 'Validar',
     'action.validateConnection': 'Validar conexión',
     'action.nextFolders': 'Siguiente: carpetas de origen',
     'action.backConnection': 'Volver: conexión',
     'action.nextSchedule': 'Siguiente: tiempo de sincronización',
     'action.backFolders': 'Volver: origen y ruta',
-    'action.nextManage': 'Siguiente: agregar o borrar',
+    'action.nextManage': 'Siguiente: guardar',
     'action.backSchedule': 'Volver: tiempo',
     'action.loadRemoteFolders': 'Mostrar carpetas de origen',
     'action.selectRemoteRoot': 'Usar raíz del repositorio',
@@ -144,7 +144,7 @@ const translations = {
     'action.forceSync': 'Sincronizar ahora',
     'action.refreshStatus': 'Ver último estado',
     'connections.title': 'Conexiones configuradas',
-    'connections.description': 'Opciones de sincronización CMIS guardadas en esta aplicación.',
+    'connections.description': 'Opciones de sincronización CMIS guardadas en esta aplicación. Elimina desde aquí una conexión cuando ya no la necesites.',
     'connections.empty': 'Todavía no hay conexiones configuradas. Guarda una nueva conexión para verla aquí.',
     'connections.active': 'Activa',
     'connections.url': 'URL',
@@ -172,9 +172,9 @@ const translations = {
     'message.syncPaused': 'Sincronización en segundo plano pausada.',
     'message.manualSyncDone': 'Sincronización manual ejecutada.',
     'message.statusRefreshed': 'Último estado actualizado.',
-    'message.clearConfirm': 'Se eliminará la conexión actual y las credenciales almacenadas. Después podrás crear una nueva conexión. ¿Continuar?',
-    'message.connectionCleared': 'Conexión actual eliminada. Introduce los datos para crear una nueva conexión.',
-    'message.connectionClearFailed': (message) => `No se pudo eliminar la conexión actual: ${message}`,
+    'message.clearConfirm': 'Se eliminará esta conexión configurada y sus credenciales almacenadas. Después podrás crear una nueva conexión. ¿Continuar?',
+    'message.connectionCleared': 'Conexión configurada eliminada. Introduce los datos para crear una nueva conexión.',
+    'message.connectionClearFailed': (message) => `No se pudo eliminar la conexión configurada: ${message}`,
     'message.connectionSaved': 'Nueva conexión guardada. Las credenciales se recordarán al volver a abrir la aplicación.',
     'message.existingLoaded': 'Configuración existente y credenciales almacenadas cargadas.',
     'message.loadFailed': (message) => `No se pudo cargar la configuración: ${message}`,
@@ -195,8 +195,8 @@ const translations = {
     'wizard.folders.description': 'Carga las carpetas de origen CMIS, elige desde dónde iniciar la sincronización y luego selecciona el destino local.',
     'wizard.schedule.title': '3. Tiempo de sincronización',
     'wizard.schedule.description': 'Elige cada cuánto la aplicación revisa CMIS y si debe seguir ejecutándose en segundo plano.',
-    'wizard.manage.title': '4. Agregar una nueva opción o borrar la actual',
-    'wizard.manage.description': 'Guarda esta configuración como opción activa de sincronización, o elimina la conexión actual para empezar de nuevo.',
+    'wizard.manage.title': '4. Guardar esta opción',
+    'wizard.manage.description': 'Guarda esta configuración como opción activa de sincronización. Las conexiones guardadas se eliminan desde Conexiones configuradas.',
     'state.idle': 'Sin iniciar',
     'state.scheduled': 'Programada',
     'state.running': 'En curso',
@@ -426,7 +426,17 @@ function renderConfiguredConnections(settings = {}) {
   badge.dataset.state = 'success';
   badge.textContent = translate('connections.active');
 
-  titleRow.append(title, badge);
+  const titleMain = document.createElement('div');
+  titleMain.className = 'connection-title-main';
+  titleMain.append(title, badge);
+
+  const deleteButton = document.createElement('button');
+  deleteButton.className = 'secondary danger';
+  deleteButton.type = 'button';
+  deleteButton.dataset.action = 'delete-configured-connection';
+  deleteButton.textContent = translate('action.clearConnection');
+
+  titleRow.append(titleMain, deleteButton);
 
   const details = document.createElement('dl');
   details.className = 'connection-details';
@@ -694,17 +704,24 @@ document.querySelector('#clearLogs').addEventListener('click', async () => {
   renderLogEntries(entries);
 });
 
-document.querySelector('#clearConnection').addEventListener('click', async () => {
+configuredConnections.addEventListener('click', async (event) => {
+  const deleteButton = event.target.closest('[data-action="delete-configured-connection"]');
+  if (!deleteButton) {
+    return;
+  }
+
   const confirmed = window.confirm(translate('message.clearConfirm'));
   if (!confirmed) {
     return;
   }
 
   try {
+    deleteButton.disabled = true;
     const cleared = await window.cmisPortable.clearSettings();
     applySettings(cleared);
     showMessage(translate('message.connectionCleared'), true);
   } catch (error) {
+    deleteButton.disabled = false;
     showMessage(translate('message.connectionClearFailed', error.message));
   }
 });
