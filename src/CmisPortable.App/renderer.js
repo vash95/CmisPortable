@@ -5,6 +5,10 @@ const translations = {
     'hero.eyebrow': 'Step-by-step wizard',
     'hero.title': 'Configure your CMIS sync',
     'hero.description': 'Connect, choose the source folder, set the local path, and review activity logs while the app runs.',
+    'tabs.label': 'Main sections',
+    'tabs.configuration': 'Configuration',
+    'tabs.connections': 'Connections',
+    'tabs.synchronization': 'Synchronization',
     'action.minimizeToTray': 'Minimize to tray',
     'action.quitApp': 'Close application',
     'field.cmisUrl': 'CMIS URL',
@@ -108,6 +112,10 @@ const translations = {
     'hero.eyebrow': 'Asistente por pasos',
     'hero.title': 'Configura tu sincronización CMIS',
     'hero.description': 'Conecta, elige la carpeta de origen, define la ruta local y revisa los logs mientras la aplicación trabaja.',
+    'tabs.label': 'Secciones principales',
+    'tabs.configuration': 'Configuración',
+    'tabs.connections': 'Conexiones',
+    'tabs.synchronization': 'Sincronización',
     'action.minimizeToTray': 'Minimizar a bandeja',
     'action.quitApp': 'Cerrar aplicación',
     'field.cmisUrl': 'URL CMIS',
@@ -247,6 +255,8 @@ const remoteFolderList = document.querySelector('#remoteFolderList');
 const remoteFolderLabel = document.querySelector('#remoteFolderLabel');
 const wizardSteps = Array.from(document.querySelectorAll('.wizard-step'));
 const stepTabs = Array.from(document.querySelectorAll('.step-tab'));
+const appTabs = Array.from(document.querySelectorAll('.app-tab'));
+const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
 const remoteHistory = [];
 let validatedConnectionKey = null;
 
@@ -371,6 +381,20 @@ function navigateToStep(stepName) {
 function setActiveStep(stepName) {
   wizardSteps.forEach((step) => step.classList.toggle('active', step.dataset.step === stepName));
   stepTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.stepTarget === stepName));
+}
+
+function setActiveTab(tabName) {
+  appTabs.forEach((tab) => {
+    const isActive = tab.dataset.tabTarget === tabName;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+
+  tabPanels.forEach((panel) => {
+    const isActive = panel.dataset.tabPanel === tabName;
+    panel.classList.toggle('active', isActive);
+    panel.hidden = !isActive;
+  });
 }
 
 function setRemoteFolder(folder, showFeedback = true) {
@@ -665,6 +689,10 @@ document.querySelectorAll('[data-next-step]').forEach((button) => {
 
 stepTabs.forEach((button) => {
   button.addEventListener('click', () => navigateToStep(button.dataset.stepTarget));
+});
+
+appTabs.forEach((button) => {
+  button.addEventListener('click', () => setActiveTab(button.dataset.tabTarget));
 });
 
 [fields.cmisUrl, fields.username, fields.secretValue].forEach((field) => {

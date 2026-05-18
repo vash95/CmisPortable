@@ -24,15 +24,22 @@
           </div>
         </section>
 
-        <form id="settingsForm" class="card wizard" novalidate>
+        <nav class="app-tabs" aria-label="Main sections" data-i18n-aria-label="tabs.label" role="tablist">
+          <button id="configurationTab" class="app-tab active" type="button" data-tab-target="configuration" aria-controls="configurationPanel" aria-selected="true" role="tab" data-i18n="tabs.configuration">Configuration</button>
+          <button id="connectionsTab" class="app-tab" type="button" data-tab-target="connections" aria-controls="connectionsPanel" aria-selected="false" role="tab" data-i18n="tabs.connections">Connections</button>
+          <button id="syncTab" class="app-tab" type="button" data-tab-target="synchronization" aria-controls="synchronizationPanel" aria-selected="false" role="tab" data-i18n="tabs.synchronization">Synchronization</button>
+        </nav>
+
+        <div id="messages" class="messages" role="status" aria-live="polite"></div>
+
+        <section id="configurationPanel" class="tab-panel active" data-tab-panel="configuration" aria-labelledby="configurationTab" role="tabpanel">
+          <form id="settingsForm" class="card wizard" novalidate>
           <nav class="stepper" aria-label="Setup steps" data-i18n-aria-label="wizard.stepsLabel">
             <button class="step-tab active" type="button" data-step-target="connection"><span>1</span><strong data-i18n="wizard.step.connection">Connection</strong></button>
             <button class="step-tab" type="button" data-step-target="folders"><span>2</span><strong data-i18n="wizard.step.folders">Source and path</strong></button>
             <button class="step-tab" type="button" data-step-target="schedule"><span>3</span><strong data-i18n="wizard.step.schedule">Sync time</strong></button>
             <button class="step-tab" type="button" data-step-target="manage"><span>4</span><strong data-i18n="wizard.step.manage">Manage</strong></button>
           </nav>
-
-          <div id="messages" class="messages" role="status" aria-live="polite"></div>
 
           <section class="wizard-step active" data-step="connection">
             <h2 data-i18n="wizard.connection.title">1. Connection</h2>
@@ -116,19 +123,23 @@
               <button class="primary" type="submit" data-i18n="action.saveConnection">Save new connection</button>
             </footer>
           </section>
-        </form>
+          </form>
+        </section>
 
-        <section class="connection-list card" aria-labelledby="configuredConnectionsTitle">
+        <section id="connectionsPanel" class="tab-panel" data-tab-panel="connections" aria-labelledby="connectionsTab" role="tabpanel" hidden>
+          <section class="connection-list card" aria-labelledby="configuredConnectionsTitle">
           <div class="connection-list-header">
             <div>
               <h2 id="configuredConnectionsTitle" data-i18n="connections.title">Configured connections</h2>
               <p data-i18n="connections.description">Saved CMIS sync options available in this app. Delete a connection here when you no longer need it.</p>
             </div>
           </div>
-          <ol id="configuredConnections" class="configured-connections" aria-live="polite" aria-label="Configured connections" data-i18n-aria-label="connections.title"></ol>
+            <ol id="configuredConnections" class="configured-connections" aria-live="polite" aria-label="Configured connections" data-i18n-aria-label="connections.title"></ol>
+          </section>
         </section>
 
-        <section class="status card">
+        <section id="synchronizationPanel" class="tab-panel" data-tab-panel="synchronization" aria-labelledby="syncTab" role="tabpanel" hidden>
+          <section class="status card">
           <div class="status-header">
             <div>
               <h2 data-i18n="sync.title">Sync status</h2>
@@ -146,7 +157,8 @@
             <button id="pauseSync" class="secondary" type="button" data-i18n="action.pauseSync">Pause sync</button>
             <button id="forceSync" class="secondary" type="button" data-i18n="action.forceSync">Sync now</button>
             <button id="refreshSyncStatus" class="ghost" type="button" data-i18n="action.refreshStatus">View latest status</button>
-          </footer>
+            </footer>
+          </section>
         </section>
       </div>
 
