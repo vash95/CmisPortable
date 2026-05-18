@@ -21,7 +21,7 @@ test('CmisSyncService creates folders, downloads documents and writes the index'
       { id: 'folder-1', name: 'Projects', type: 'folder', lastModified: '2026-01-01T00:00:00Z' }
     ],
     'folder-1': [
-      { id: 'doc-1', name: 'readme.txt', type: 'document', lastModified: '2026-01-02T00:00:00Z', size: 11 }
+      { id: 'doc-1', name: 'readme.txt', type: 'document', contentStreamFileName: 'readme.txt', lastModified: '2026-01-02T00:00:00Z', size: 11 }
     ]
   }, {
     'doc-1': 'hello cmis!'
@@ -42,7 +42,7 @@ test('CmisSyncService creates folders, downloads documents and writes the index'
 });
 
 
-test('CmisSyncService appends an extension to extensionless downloaded documents', async () => {
+test('CmisSyncService uses the binary file name for downloaded documents', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-sync-test-'));
   const client = createFakeClient({
     '/': [
@@ -50,7 +50,7 @@ test('CmisSyncService appends an extension to extensionless downloaded documents
         id: 'doc-1',
         name: 'Contrato',
         type: 'document',
-        contentStreamFileName: 'contrato.pdf',
+        contentStreamFileName: 'contrato-binario.pdf',
         mimeType: 'application/pdf',
         lastModified: '2026-01-02T00:00:00Z',
         size: 12
@@ -59,6 +59,7 @@ test('CmisSyncService appends an extension to extensionless downloaded documents
         id: 'doc-2',
         name: 'Notas',
         type: 'document',
+        contentStreamFileName: 'notas-binario.txt',
         mimeType: 'text/plain',
         lastModified: '2026-01-02T00:00:00Z',
         size: 5
@@ -73,20 +74,20 @@ test('CmisSyncService appends an extension to extensionless downloaded documents
   const result = await service.sync({ url: 'https://example.test/cmis', username: 'ana', password: 'secret' });
 
   assert.equal(result.errors.length, 0);
-  assert.equal(await fs.readFile(path.join(tempDir, 'Contrato.pdf'), 'utf8'), 'pdf content!');
-  assert.equal(await fs.readFile(path.join(tempDir, 'Notas.txt'), 'utf8'), 'notes');
+  assert.equal(await fs.readFile(path.join(tempDir, 'contrato-binario.pdf'), 'utf8'), 'pdf content!');
+  assert.equal(await fs.readFile(path.join(tempDir, 'notas-binario.txt'), 'utf8'), 'notes');
 
   const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
-  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.localPath === 'Contrato.pdf'), true);
-  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-2' && entry.remotePath === '/Notas.txt'), true);
+  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.localPath === 'contrato-binario.pdf'), true);
+  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-2' && entry.remotePath === '/notas-binario.txt'), true);
 });
 
 test('CmisSyncService updates modified documents and removes items missing from CMIS', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-sync-test-'));
   const client = createFakeClient({
     '/': [
-      { id: 'doc-1', name: 'manual.txt', type: 'document', lastModified: '2026-01-01T00:00:00Z', size: 3 },
-      { id: 'doc-2', name: 'obsolete.txt', type: 'document', lastModified: '2026-01-01T00:00:00Z', size: 8 }
+      { id: 'doc-1', name: 'manual.txt', type: 'document', contentStreamFileName: 'manual.txt', lastModified: '2026-01-01T00:00:00Z', size: 3 },
+      { id: 'doc-2', name: 'obsolete.txt', type: 'document', contentStreamFileName: 'obsolete.txt', lastModified: '2026-01-01T00:00:00Z', size: 8 }
     ]
   }, {
     'doc-1': 'one',
@@ -97,7 +98,7 @@ test('CmisSyncService updates modified documents and removes items missing from 
   await service.sync({ url: 'https://example.test/cmis', username: 'ana', password: 'secret' });
 
   client.childrenByFolder['/'] = [
-    { id: 'doc-1', name: 'manual.txt', type: 'document', lastModified: '2026-01-02T00:00:00Z', size: 3 }
+    { id: 'doc-1', name: 'manual.txt', type: 'document', contentStreamFileName: 'manual.txt', lastModified: '2026-01-02T00:00:00Z', size: 3 }
   ];
   client.documents['doc-1'] = 'two';
 
@@ -111,6 +112,63 @@ test('CmisSyncService updates modified documents and removes items missing from 
   await assert.rejects(() => fs.access(path.join(tempDir, 'obsolete.txt')), /ENOENT/);
 });
 
+test('CmisSyncService renames documents when the binary file name changes and removes old local files', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-sync-test-'));
+  const client = createFakeClient({
+    '/': [
+      { id: 'doc-1', name: 'Contrato', type: 'document', contentStreamFileName: 'contrato-v1.pdf', lastModified: '2026-01-01T00:00:00Z', size: 3 }
+    ]
+  }, {
+    'doc-1': 'one'
+  });
+  const service = new CmisSyncService({ cmisClient: client, localRoot: tempDir, retryDelayMs: 1 });
+
+  await service.sync({ url: 'https://example.test/cmis', username: 'ana', password: 'secret' });
+
+  client.childrenByFolder['/'] = [
+    { id: 'doc-1', name: 'Contrato', type: 'document', contentStreamFileName: 'contrato-v2.pdf', lastModified: '2026-01-02T00:00:00Z', size: 3 }
+  ];
+  client.documents['doc-1'] = 'two';
+
+  const result = await service.sync({ url: 'https://example.test/cmis', username: 'ana', password: 'secret' });
+
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.updated, 1);
+  assert.equal(result.deleted, 1);
+  assert.equal(await fs.readFile(path.join(tempDir, 'contrato-v2.pdf'), 'utf8'), 'two');
+  await assert.rejects(() => fs.access(path.join(tempDir, 'contrato-v1.pdf')), /ENOENT/);
+
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.localPath === 'contrato-v2.pdf' && entry.binaryFileName === 'contrato-v2.pdf'), true);
+});
+
+test('CmisSyncService removes local document when the CMIS document no longer has a binary', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-sync-test-'));
+  const client = createFakeClient({
+    '/': [
+      { id: 'doc-1', name: 'Contrato', type: 'document', contentStreamFileName: 'contrato.pdf', lastModified: '2026-01-01T00:00:00Z', size: 3 }
+    ]
+  }, {
+    'doc-1': 'one'
+  });
+  const service = new CmisSyncService({ cmisClient: client, localRoot: tempDir, retryDelayMs: 1 });
+
+  await service.sync({ url: 'https://example.test/cmis', username: 'ana', password: 'secret' });
+
+  client.childrenByFolder['/'] = [
+    { id: 'doc-1', name: 'Contrato', type: 'document', lastModified: '2026-01-02T00:00:00Z' }
+  ];
+
+  const result = await service.sync({ url: 'https://example.test/cmis', username: 'ana', password: 'secret' });
+
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.deleted, 1);
+  await assert.rejects(() => fs.access(path.join(tempDir, 'contrato.pdf')), /ENOENT/);
+
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1'), false);
+});
+
 test('CmisSyncService records permission errors per folder without aborting the whole sync', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-sync-test-'));
   const denied = new Error('permission denied');
@@ -118,7 +176,7 @@ test('CmisSyncService records permission errors per folder without aborting the 
   const client = createFakeClient({
     '/': [
       { id: 'denied-folder', name: 'Private', type: 'folder' },
-      { id: 'doc-1', name: 'public.txt', type: 'document', lastModified: '2026-01-01T00:00:00Z', size: 6 }
+      { id: 'doc-1', name: 'public.txt', type: 'document', contentStreamFileName: 'public.txt', lastModified: '2026-01-01T00:00:00Z', size: 6 }
     ],
     'denied-folder': denied
   }, {
@@ -147,10 +205,10 @@ test('CmisSyncService can start synchronization from a selected CMIS source fold
       { id: 'folder-2', name: 'Archive', type: 'folder', lastModified: '2026-01-01T00:00:00Z' }
     ],
     'folder-1': [
-      { id: 'doc-1', name: 'selected.txt', type: 'document', lastModified: '2026-01-02T00:00:00Z', size: 8 }
+      { id: 'doc-1', name: 'selected.txt', type: 'document', contentStreamFileName: 'selected.txt', lastModified: '2026-01-02T00:00:00Z', size: 8 }
     ],
     'folder-2': [
-      { id: 'doc-2', name: 'ignored.txt', type: 'document', lastModified: '2026-01-02T00:00:00Z', size: 7 }
+      { id: 'doc-2', name: 'ignored.txt', type: 'document', contentStreamFileName: 'ignored.txt', lastModified: '2026-01-02T00:00:00Z', size: 7 }
     ]
   }, {
     'doc-1': 'selected',

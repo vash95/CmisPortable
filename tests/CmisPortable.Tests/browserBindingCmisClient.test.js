@@ -257,7 +257,7 @@ test('CmisSyncService can sync folders and documents using BrowserBindingCmisCli
 
   assert.equal(result.errors.length, 0);
   assert.equal(result.downloaded, 2);
-  assert.equal(await fs.readFile(path.join(tempDir, 'manual.txt'), 'utf8'), 'browser binding document');
+  assert.equal(await fs.readFile(path.join(tempDir, 'manual.pdf'), 'utf8'), 'browser binding document');
   assert.equal(await fs.readFile(path.join(tempDir, 'Projects', 'plan.txt'), 'utf8'), 'nested plan');
 
   const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
@@ -319,7 +319,7 @@ const objectsById = {
   'root-folder': { id: 'root-folder', name: '', baseTypeId: 'cmis:folder' },
   'folder-1': { id: 'folder-1', name: 'Projects', baseTypeId: 'cmis:folder' },
   'doc-1': { id: 'doc-1', name: 'manual.txt', baseTypeId: 'cmis:document', size: 24 },
-  'doc-2': { id: 'doc-2', name: 'plan.txt', baseTypeId: 'cmis:document', size: 11 }
+  'doc-2': { id: 'doc-2', name: 'plan.txt', baseTypeId: 'cmis:document', size: 11, contentStreamFileName: 'plan.txt', mimeType: 'text/plain' }
 };
 
 const childrenByFolder = {
@@ -332,7 +332,7 @@ const contentByDocument = {
   'doc-2': 'nested plan'
 };
 
-function cmisObject({ id, name, baseTypeId, size }) {
+function cmisObject({ id, name, baseTypeId, size, contentStreamFileName, mimeType }) {
   return {
     succinctProperties: {
       'cmis:objectId': id,
@@ -344,6 +344,10 @@ function cmisObject({ id, name, baseTypeId, size }) {
       ...(id === 'doc-1' ? {
         'cmis:contentStreamFileName': 'manual.pdf',
         'cmis:contentStreamMimeType': 'application/pdf'
+      } : {}),
+      ...(contentStreamFileName ? {
+        'cmis:contentStreamFileName': contentStreamFileName,
+        'cmis:contentStreamMimeType': mimeType
       } : {})
     }
   };

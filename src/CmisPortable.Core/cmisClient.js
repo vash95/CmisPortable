@@ -9,6 +9,8 @@
  * - lastModified/lastModificationDate/updatedAt opcional para detectar cambios remotos.
  * - size/contentStreamLength opcional para validar documentos.
  * - hash/contentHash opcional cuando el repositorio lo exponga.
+ * - contentStreamFileName/fileName requerido para documentos con binario; si falta,
+ *   CmisSyncService tratará el documento como sin binario y quitará su copia local.
  */
 class ICmisClient {
   async ConnectAsync(_url, _username, _password) {
