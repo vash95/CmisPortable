@@ -485,6 +485,14 @@ button:hover { background: var(--primary-strong); }
   justify-content: space-between;
 }
 
+.connection-title-main {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
 .connection-title-row strong {
   color: #bfdbfe;
   overflow-wrap: anywhere;
@@ -525,6 +533,7 @@ button:hover { background: var(--primary-strong); }
 
 @media (max-width: 720px) {
   .connection-title-row,
+  .connection-title-main,
   .connection-details {
     grid-template-columns: 1fr;
     display: grid;
