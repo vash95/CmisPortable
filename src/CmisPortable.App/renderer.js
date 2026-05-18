@@ -469,6 +469,16 @@ function setLogConsoleExpanded(expanded) {
   toggleLogConsoleButton.textContent = translate(expanded ? 'action.hideLogs' : 'action.showLogs');
 }
 
+function showLogConsolePanel() {
+  logConsole.hidden = false;
+  setLogConsoleExpanded(true);
+}
+
+function hideLogConsolePanel() {
+  setLogConsoleExpanded(false);
+  logConsole.hidden = true;
+}
+
 function renderLogEntries(entries = []) {
   logEntries.replaceChildren(...entries.map(createLogEntryElement));
   logEntries.scrollTop = logEntries.scrollHeight;
@@ -740,11 +750,13 @@ form.addEventListener('submit', async (event) => {
 
 window.cmisPortable.onSyncStatus(renderSyncStatus);
 window.cmisPortable.onLogEntry(appendLogEntry);
+window.cmisPortable.onShowSettings(hideLogConsolePanel);
+window.cmisPortable.onShowLogConsole(showLogConsolePanel);
 
 async function initialize() {
   currentLocale = resolveLocale(await window.cmisPortable.getLocale());
   applyTranslations();
-  setLogConsoleExpanded(false);
+  hideLogConsolePanel();
   window.cmisPortable.getLogs().then(renderLogEntries);
 
   window.cmisPortable.loadSettings()
