@@ -1,47 +1,67 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="blueGrad" x1="96" y1="140" x2="220" y2="310" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0A63D8"/>
-      <stop offset="1" stop-color="#1EA7FF"/>
+    <linearGradient id="bg" x1="72" y1="54" x2="442" y2="462" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EDF6FF"/>
     </linearGradient>
-    <linearGradient id="goldGrad" x1="292" y1="165" x2="420" y2="310" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F7B500"/>
-      <stop offset="1" stop-color="#FFD84D"/>
+    <linearGradient id="blue" x1="104" y1="202" x2="232" y2="334" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#179BFF"/>
+      <stop offset="1" stop-color="#0056D6"/>
     </linearGradient>
-    <linearGradient id="syncGrad" x1="122" y1="112" x2="395" y2="392" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0A63D8"/>
-      <stop offset="1" stop-color="#1EA7FF"/>
+    <linearGradient id="blueFront" x1="128" y1="247" x2="228" y2="363" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#42C3FF"/>
+      <stop offset="1" stop-color="#0567E7"/>
     </linearGradient>
-    <filter id="shadow" x="60" y="80" width="400" height="340" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0B2B5C" flood-opacity="0.18"/>
+    <linearGradient id="yellow" x1="284" y1="204" x2="410" y2="332" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD84A"/>
+      <stop offset="1" stop-color="#F4A100"/>
+    </linearGradient>
+    <linearGradient id="yellowFront" x1="306" y1="250" x2="416" y2="362" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE76A"/>
+      <stop offset="1" stop-color="#FFB000"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="124" y1="102" x2="399" y2="416" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0057D9"/>
+      <stop offset="0.52" stop-color="#159BFF"/>
+      <stop offset="1" stop-color="#0057D9"/>
+    </linearGradient>
+    <filter id="softShadow" x="54" y="80" width="404" height="350" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0A3470" flood-opacity="0.18"/>
+    </filter>
+    <filter id="folderShadow" x="70" y="176" width="374" height="216" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#07305F" flood-opacity="0.22"/>
     </filter>
   </defs>
 
-  <!-- Background badge -->
-  <rect width="512" height="512" rx="112" fill="#F7FAFF"/>
-  <circle cx="256" cy="256" r="218" stroke="#0A63D8" stroke-width="14"/>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="218" fill="white" fill-opacity="0.35" stroke="#D8E9FF" stroke-width="14"/>
 
-  <!-- Sync arrows -->
-  <path d="M151 177C179 124 234 91 293 97C343 102 386 132 409 177" stroke="url(#syncGrad)" stroke-width="24" stroke-linecap="round"/>
-  <path d="M415 175L424 227L375 207L415 175Z" fill="#0A63D8"/>
+  <!-- exchange arrows -->
+  <g filter="url(#softShadow)">
+    <path d="M132 181C163 120 225 83 292 91C348 98 392 130 419 180" stroke="url(#arrow)" stroke-width="30" stroke-linecap="round"/>
+    <path d="M423 166C427 160 437 162 439 169L454 236C456 245 447 252 439 248L376 221C369 218 368 208 374 204L423 166Z" fill="#0879F2"/>
 
-  <path d="M361 335C333 388 278 421 219 415C169 410 126 380 103 335" stroke="url(#syncGrad)" stroke-width="24" stroke-linecap="round"/>
-  <path d="M97 337L88 285L137 305L97 337Z" fill="#0A63D8"/>
-
-  <!-- Folders -->
-  <g filter="url(#shadow)">
-    <!-- Left blue folder -->
-    <path d="M82 203C82 193.6 89.6 186 99 186H151C157 186 162.6 189.1 165.8 194.2L174 207H223C232.4 207 240 214.6 240 224V308C240 317.4 232.4 325 223 325H99C89.6 325 82 317.4 82 308V203Z" fill="url(#blueGrad)"/>
-    <rect x="82" y="224" width="158" height="101" rx="18" fill="#0B75E8"/>
-    <path d="M121 255C121 249.5 125.5 245 131 245H160C164 245 167.7 247 170 250.3L177 260H202C207.5 260 212 264.5 212 270V296C212 301.5 207.5 306 202 306H131C125.5 306 121 301.5 121 296V255Z" stroke="white" stroke-width="10" stroke-linejoin="round"/>
-
-    <!-- Right yellow folder -->
-    <path d="M272 203C272 193.6 279.6 186 289 186H341C347 186 352.6 189.1 355.8 194.2L364 207H413C422.4 207 430 214.6 430 224V308C430 317.4 422.4 325 413 325H289C279.6 325 272 317.4 272 308V203Z" fill="#E7A700"/>
-    <rect x="272" y="224" width="158" height="101" rx="18" fill="url(#goldGrad)"/>
-    <path d="M324 288H388C400 288 409 279 409 267C409 256.6 401.6 248 391.8 246.1C388.7 232.2 376.3 222 361.5 222C347.9 222 336.3 230.6 331.9 242.6C319.7 245.3 311 256 311 268.6C311 279.3 316.9 288 324 288Z" stroke="white" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M380 331C349 392 287 429 220 421C164 414 120 382 93 332" stroke="url(#arrow)" stroke-width="30" stroke-linecap="round"/>
+    <path d="M89 346C85 352 75 350 73 343L58 276C56 267 65 260 73 264L136 291C143 294 144 304 138 308L89 346Z" fill="#0057D9"/>
   </g>
 
-  <!-- CMIS connector -->
-  <line x1="246" y1="263" x2="266" y2="263" stroke="#0B3A78" stroke-width="8" stroke-linecap="round" stroke-dasharray="1 15"/>
-  <text x="256" y="273" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="800" fill="#0B3A78">CMIS</text>
+  <!-- folders -->
+  <g filter="url(#folderShadow)">
+    <!-- blue folder back -->
+    <path d="M88 210C88 198.4 97.4 189 109 189H155C163.2 189 170.8 193.1 175.3 199.9L188.5 220H237C248.6 220 258 229.4 258 241V322C258 333.6 248.6 343 237 343H109C97.4 343 88 333.6 88 322V210Z" fill="url(#blue)"/>
+    <path d="M108 238H242C253.8 238 262.8 248.5 260.9 260.1L249.9 326.1C248.4 335.9 239.9 343 230 343H98C91.7 343 86.9 337.4 88 331.2L100.2 255.7C101.8 245.5 110.5 238 120.8 238H108Z" fill="url(#blueFront)"/>
+    <path d="M111 204H155C158.2 204 161.2 205.6 163 208.3L175 226" stroke="#8BD7FF" stroke-width="6" stroke-linecap="round"/>
+    <path d="M112 250H233" stroke="white" stroke-opacity="0.32" stroke-width="7" stroke-linecap="round"/>
+
+    <!-- yellow folder back -->
+    <path d="M254 210C254 198.4 263.4 189 275 189H321C329.2 189 336.8 193.1 341.3 199.9L354.5 220H403C414.6 220 424 229.4 424 241V322C424 333.6 414.6 343 403 343H275C263.4 343 254 333.6 254 322V210Z" fill="url(#yellow)"/>
+    <path d="M274 238H408C419.8 238 428.8 248.5 426.9 260.1L415.9 326.1C414.4 335.9 405.9 343 396 343H264C257.7 343 252.9 337.4 254 331.2L266.2 255.7C267.8 245.5 276.5 238 286.8 238H274Z" fill="url(#yellowFront)"/>
+    <path d="M277 204H321C324.2 204 327.2 205.6 329 208.3L341 226" stroke="#FFF1A6" stroke-width="6" stroke-linecap="round"/>
+    <path d="M278 250H399" stroke="white" stroke-opacity="0.45" stroke-width="7" stroke-linecap="round"/>
+  </g>
+
+  <!-- center transfer dots -->
+  <circle cx="244" cy="281" r="5" fill="#0A3B78" opacity="0.75"/>
+  <circle cx="256" cy="281" r="5" fill="#0A3B78" opacity="0.75"/>
+  <circle cx="268" cy="281" r="5" fill="#0A3B78" opacity="0.75"/>
 </svg>
