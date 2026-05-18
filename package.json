@@ -1,5 +1,5 @@
 {
-  "name": "cmis-portable",
+  "name": "cmis-ic2",
   "version": "0.1.0",
   "private": true,
   "description": "Aplicación de escritorio para configurar y ejecutar sincronización CMIS portable.",
@@ -27,8 +27,8 @@
     "node": ">=20"
   },
   "build": {
-    "appId": "com.cmisportable.app",
-    "productName": "CmisPortable",
+    "appId": "com.cmisic2.app",
+    "productName": "CmisIC2",
     "directories": {
       "output": "dist"
     },

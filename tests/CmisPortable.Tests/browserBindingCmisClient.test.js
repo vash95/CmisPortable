@@ -72,7 +72,7 @@ test('BrowserBindingCmisClient rewrites XML JSON parser failures with CMIS guida
 
   await assert.rejects(
     () => client.ConnectAsync('http://127.0.0.1/ic2v11/custom', 'ana', 'secret'),
-    /CmisPortable necesita una URL CMIS Browser Binding JSON/
+    /CmisIC2 necesita una URL CMIS Browser Binding JSON/
   );
 });
 
@@ -312,7 +312,7 @@ test('CmisSyncService can sync folders and documents using BrowserBindingCmisCli
   assert.equal(await fs.readFile(path.join(tempDir, 'manual.pdf'), 'utf8'), 'browser binding document');
   assert.equal(await fs.readFile(path.join(tempDir, 'Projects', 'plan.txt'), 'utf8'), 'nested plan');
 
-  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisic2', 'index.json'), 'utf8'));
   assert.equal(index.entries.some((entry) => entry.remotePath === '/Projects/plan.txt' && entry.cmisObjectId === 'doc-2'), true);
 });
 

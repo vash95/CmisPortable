@@ -21,7 +21,7 @@ const ATOMPUB_OBJECT_BY_ID_DEFAULTS = {
  * Cliente CMIS basado en CmisJS.
  *
  * CmisJS expone CmisSession como punto de entrada para Browser Binding. Este
- * adaptador mantiene la interfaz interna ICmisClient usada por CmisPortable y
+ * adaptador mantiene la interfaz interna ICmisClient usada por CmisIC2 y
  * normaliza las respuestas para que CmisSyncService no dependa de detalles del
  * SDK ni del formato de propiedades CMIS.
  */
@@ -532,7 +532,7 @@ async function normalizeConnectionError(error, configuredUrl) {
   const enrichedError = await enrichCmisError(error);
 
   if (isXmlJsonParseError(enrichedError)) {
-    return new Error(`El servidor devolvió XML en lugar de JSON desde ${configuredUrl}. CmisPortable necesita una URL CMIS Browser Binding JSON; si tu URL original termina en /atom/cmis, usa /browser.`);
+    return new Error(`El servidor devolvió XML en lugar de JSON desde ${configuredUrl}. CmisIC2 necesita una URL CMIS Browser Binding JSON; si tu URL original termina en /atom/cmis, usa /browser.`);
   }
 
   if (enrichedError?.response) {

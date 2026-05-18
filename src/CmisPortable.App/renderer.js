@@ -680,7 +680,7 @@ async function validateConnectionOnly() {
   const draft = collectSettings();
   const result = await window.cmisPortable.validateSettings({
     ...draft,
-    localFolder: draft.localFolder || '/tmp/cmisportable-validation'
+    localFolder: draft.localFolder || '/tmp/cmisic2-validation'
   });
   const blockingErrors = result.errors.filter((error) => !['localFolder', 'syncIntervalSeconds'].includes(error.field));
   if (blockingErrors.length > 0) {

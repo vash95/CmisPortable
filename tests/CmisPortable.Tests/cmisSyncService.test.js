@@ -36,7 +36,7 @@ test('CmisSyncService creates folders, downloads documents and writes the index'
   assert.equal(result.deleted, 0);
   assert.equal(await fs.readFile(path.join(tempDir, 'Projects', 'readme.txt'), 'utf8'), 'hello cmis!');
 
-  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisic2', 'index.json'), 'utf8'));
   assert.equal(index.mirrorPolicy, 'server-readonly');
   assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.remotePath === '/Projects/readme.txt'), true);
 });
@@ -77,7 +77,7 @@ test('CmisSyncService uses the binary file name for downloaded documents', async
   assert.equal(await fs.readFile(path.join(tempDir, 'contrato-binario.pdf'), 'utf8'), 'pdf content!');
   assert.equal(await fs.readFile(path.join(tempDir, 'notas-binario.txt'), 'utf8'), 'notes');
 
-  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisic2', 'index.json'), 'utf8'));
   assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.localPath === 'contrato-binario.pdf'), true);
   assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-2' && entry.remotePath === '/notas-binario.txt'), true);
 });
@@ -138,7 +138,7 @@ test('CmisSyncService renames documents when the binary file name changes and re
   assert.equal(await fs.readFile(path.join(tempDir, 'contrato-v2.pdf'), 'utf8'), 'two');
   await assert.rejects(() => fs.access(path.join(tempDir, 'contrato-v1.pdf')), /ENOENT/);
 
-  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisic2', 'index.json'), 'utf8'));
   assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.localPath === 'contrato-v2.pdf' && entry.binaryFileName === 'contrato-v2.pdf'), true);
 });
 
@@ -165,7 +165,7 @@ test('CmisSyncService removes local document when the CMIS document no longer ha
   assert.equal(result.deleted, 1);
   await assert.rejects(() => fs.access(path.join(tempDir, 'contrato.pdf')), /ENOENT/);
 
-  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisic2', 'index.json'), 'utf8'));
   assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1'), false);
 });
 
@@ -228,7 +228,7 @@ test('CmisSyncService can start synchronization from a selected CMIS source fold
   assert.equal(await fs.readFile(path.join(tempDir, 'selected.txt'), 'utf8'), 'selected');
   await assert.rejects(() => fs.access(path.join(tempDir, 'ignored.txt')), /ENOENT/);
 
-  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisportable', 'index.json'), 'utf8'));
+  const index = JSON.parse(await fs.readFile(path.join(tempDir, '.cmisic2', 'index.json'), 'utf8'));
   assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-1' && entry.remotePath === '/Projects/selected.txt'), true);
   assert.equal(index.entries.some((entry) => entry.cmisObjectId === 'doc-2'), false);
 });

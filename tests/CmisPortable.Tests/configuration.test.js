@@ -88,7 +88,7 @@ test('validateSettings accepts a complete HTTP CMIS configuration', () => {
 });
 
 test('SettingsStore persists configuration and delegates secrets to secure storage', async () => {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-portable-test-'));
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-ic2-test-'));
   const calls = [];
   const store = new SettingsStore({
     settingsPath: path.join(tempDir, 'settings.json'),
@@ -128,7 +128,7 @@ test('SettingsStore persists configuration and delegates secrets to secure stora
 });
 
 test('SettingsStore rejects sync intervals outside the allowed range', async () => {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-portable-test-'));
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-ic2-test-'));
   const store = new SettingsStore({
     settingsPath: path.join(tempDir, 'settings.json'),
     secureStorage: {
@@ -153,7 +153,7 @@ test('SettingsStore rejects sync intervals outside the allowed range', async () 
 
 
 test('SettingsStore clears persisted connection and stored credentials', async () => {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-portable-test-'));
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-ic2-test-'));
   const settingsPath = path.join(tempDir, 'settings.json');
   const store = new SettingsStore({
     settingsPath,
