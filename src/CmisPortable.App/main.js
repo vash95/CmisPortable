@@ -6,7 +6,8 @@ const { CmisSyncService } = require('../CmisPortable.Core/cmisSyncService');
 const { BrowserBindingCmisClient } = require('../CmisPortable.Core/browserBindingCmisClient');
 const { BackgroundSyncWorker } = require('../CmisPortable.Core/backgroundSyncWorker');
 const { createElectronSecureStorage } = require('./secureStorage');
-const { resolveLocale } = require('../CmisPortable.Core/i18n');
+const { createTranslator, resolveLocale } = require('../CmisPortable.Core/i18n');
+const { MAIN_TRANSLATIONS } = require('./mainTranslations');
 
 let mainWindow;
 let tray;
@@ -35,76 +36,10 @@ function createAppIcon(size) {
 }
 
 
-const mainTranslations = {
-  en: {
-    'dialog.remoteRoot': 'Repository root',
-    'log.config.remoteBrowse': 'Loading CMIS source folders.',
-    'tray.openSettings': 'Open settings',
-    'tray.openLogs': 'Open log console',
-    'tray.syncNow': 'Sync now',
-    'tray.resumeSync': 'Resume sync',
-    'tray.pauseSync': 'Pause sync',
-    'tray.quit': 'Quit',
-    'dialog.chooseFolder': 'Select local sync folder',
-    'log.sync.prepare': 'Preparing sync with the saved configuration.',
-    'log.config.interval': (seconds) => `Refresh interval set to ${seconds} seconds.`,
-    'log.config.backgroundEnabled': 'Background sync enabled.',
-    'log.config.backgroundDisabled': 'Background sync disabled.',
-    'log.config.saving': 'Saving sync configuration.',
-    'log.config.clearing': 'Deleting the configured connection and stored credentials.',
-    'log.app.quitRequested': 'Application quit requested from the interface.',
-    'log.sync.resuming': 'Resuming sync from the interface.',
-    'log.sync.pausing': 'Pausing sync from the interface.',
-    'log.sync.manual': 'Manual sync requested.',
-    'log.app.logsCleared': 'Log console cleared.',
-    'log.config.loaded': 'Stored credentials and configuration loaded at startup.',
-    'log.config.loadFailed': 'Stored credentials could not be loaded at startup.',
-    'log.app.started': 'Application started.',
-    'log.app.minimizedToTray': 'Window minimized to the tray icon.',
-    'log.connection.validationStarted': 'Validating CMIS connection.',
-    'log.connection.connected': 'CMIS server responded and repository information was loaded.',
-    'log.connection.rootLoaded': 'CMIS repository root folder loaded.',
-    'log.connection.validationSucceeded': 'CMIS connection validation completed successfully.',
-    'log.connection.validationFailed': 'CMIS connection validation failed.',
-    'log.connection.unknownError': 'Unknown error. Check the log console for diagnostic details.'
-  },
-  es: {
-    'dialog.remoteRoot': 'Raíz del repositorio',
-    'log.config.remoteBrowse': 'Cargando carpetas de origen CMIS.',
-    'tray.openSettings': 'Abrir configuración',
-    'tray.openLogs': 'Abrir consola de log',
-    'tray.syncNow': 'Sincronizar ahora',
-    'tray.resumeSync': 'Reanudar sincronización',
-    'tray.pauseSync': 'Pausar sincronización',
-    'tray.quit': 'Salir',
-    'dialog.chooseFolder': 'Seleccionar carpeta local de sincronización',
-    'log.sync.prepare': 'Preparando sincronización con la configuración guardada.',
-    'log.config.interval': (seconds) => `Intervalo de refresco configurado en ${seconds} segundos.`,
-    'log.config.backgroundEnabled': 'Sincronización en segundo plano habilitada.',
-    'log.config.backgroundDisabled': 'Sincronización en segundo plano deshabilitada.',
-    'log.config.saving': 'Guardando configuración de sincronización.',
-    'log.config.clearing': 'Eliminando la conexión configurada y sus credenciales almacenadas.',
-    'log.app.quitRequested': 'Cierre de aplicación solicitado desde la interfaz.',
-    'log.sync.resuming': 'Reanudando sincronización desde la interfaz.',
-    'log.sync.pausing': 'Pausando sincronización desde la interfaz.',
-    'log.sync.manual': 'Sincronización manual solicitada.',
-    'log.app.logsCleared': 'Consola de log limpiada.',
-    'log.config.loaded': 'Credenciales y configuración almacenadas cargadas al iniciar.',
-    'log.config.loadFailed': 'No se pudieron cargar las credenciales almacenadas al iniciar.',
-    'log.app.started': 'Aplicación iniciada.',
-    'log.app.minimizedToTray': 'Ventana minimizada al icono de la bandeja.',
-    'log.connection.validationStarted': 'Validando conexión CMIS.',
-    'log.connection.connected': 'El servidor CMIS respondió y se cargó la información del repositorio.',
-    'log.connection.rootLoaded': 'Carpeta raíz del repositorio CMIS cargada.',
-    'log.connection.validationSucceeded': 'Validación de conexión CMIS completada correctamente.',
-    'log.connection.validationFailed': 'Falló la validación de conexión CMIS.',
-    'log.connection.unknownError': 'Error desconocido. Revisa la consola de log para ver los detalles de diagnóstico.'
-  }
-};
+const translateMain = createTranslator(MAIN_TRANSLATIONS);
 
 function mt(key, ...args) {
-  const value = mainTranslations[appLocale]?.[key] ?? mainTranslations.en[key] ?? key;
-  return typeof value === 'function' ? value(...args) : value;
+  return translateMain(key, appLocale, ...args);
 }
 
 

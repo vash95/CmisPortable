@@ -26,7 +26,7 @@ const translations = {
     'validation.username.required': 'El usuario es obligatorio.',
     'validation.localFolder.required': 'La carpeta local de sincronización es obligatoria.',
     'validation.syncIntervalSeconds.range': 'El intervalo de sincronización debe estar entre 10 segundos y 1 minuto.',
-    'settings.invalid': 'Configuración inválida',
+    'settings.invalid': 'Configuración no válida',
     'sync.status.idle': 'Sincronización en segundo plano detenida.',
     'sync.status.scheduled': 'Sincronización en segundo plano programada.',
     'sync.status.paused': 'Sincronización en segundo plano pausada.',
@@ -44,14 +44,21 @@ function resolveLocale(locale) {
   return SUPPORTED_LOCALES.includes(language) ? language : DEFAULT_LOCALE;
 }
 
-function t(key, locale = DEFAULT_LOCALE) {
-  const resolvedLocale = resolveLocale(locale);
-  return translations[resolvedLocale][key] ?? translations[DEFAULT_LOCALE][key] ?? key;
+function createTranslator(dictionary, defaultLocale = DEFAULT_LOCALE) {
+  return function translate(key, locale = defaultLocale, ...args) {
+    const resolvedLocale = resolveLocale(locale);
+    const value = dictionary[resolvedLocale]?.[key] ?? dictionary[defaultLocale]?.[key] ?? key;
+    return typeof value === 'function' ? value(...args) : value;
+  };
 }
+
+const t = createTranslator(translations);
 
 module.exports = {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
+  translations,
+  createTranslator,
   resolveLocale,
   t
 };
