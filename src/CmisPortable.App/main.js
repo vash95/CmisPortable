@@ -167,7 +167,7 @@ function createWindow() {
     height: 820,
     minWidth: 940,
     minHeight: 680,
-    title: 'CmisPortable',
+    title: 'CmisIC2',
     icon: createAppIcon(),
     show: false,
     webPreferences: {
@@ -211,7 +211,7 @@ function createTray() {
   }
 
   tray = new Tray(createAppIcon(16));
-  tray.setToolTip('CmisPortable');
+  tray.setToolTip('CmisIC2');
   updateTrayMenu();
   tray.on('double-click', showMainWindow);
   return tray;

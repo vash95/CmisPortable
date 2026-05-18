@@ -2,7 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const DEFAULT_INDEX_DIRECTORY = '.cmisportable';
+const DEFAULT_INDEX_DIRECTORY = '.cmisic2';
 const DEFAULT_INDEX_FILE = 'index.json';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_RETRY_COUNT = 3;
@@ -245,7 +245,7 @@ class CmisSyncService {
       stats.downloaded += 1;
     }
 
-    const tempPath = `${localPath}.cmisportable-download-${process.pid}-${Date.now()}`;
+    const tempPath = `${localPath}.cmisic2-download-${process.pid}-${Date.now()}`;
     try {
       await this.withRetry(
         () => this.withTimeout(this.cmisClient.DownloadDocumentAsync(documentId, tempPath), `DownloadDocumentAsync:${remotePath}`),
