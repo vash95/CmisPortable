@@ -163,8 +163,9 @@ class CmisSyncService {
     for (const child of children ?? []) {
       const childId = getObjectId(child);
       const childName = getLocalChildName(child, childId);
-      const childRemotePath = joinRemotePath(remotePath, childName);
-      const childLocalPath = this.safeLocalPath(localPath, childName);
+      const childRemoteName = childName ?? sanitizePathSegment(child?.name ?? childId ?? 'unnamed');
+      const childRemotePath = joinRemotePath(remotePath, childRemoteName);
+      const childLocalPath = childName ? this.safeLocalPath(localPath, childName) : null;
 
       if (!childId) {
         this.recordError(errors, childRemotePath, null, new Error('CMIS child without id.'), 'inspect');
@@ -189,6 +190,10 @@ class CmisSyncService {
       }
 
       if (isDocument(child)) {
+        if (!childLocalPath) {
+          continue;
+        }
+
         try {
           await this.syncDocument({
             document: child,
@@ -213,17 +218,24 @@ class CmisSyncService {
     const previousEntry = previousIndex.entriesById.get(documentId);
     const remoteFingerprint = getRemoteFingerprint(document);
 
+    if (!remoteFingerprint.binaryFileName) {
+      return;
+    }
+
     await fs.mkdir(path.dirname(localPath), { recursive: true });
 
     const downloadDecision = await this.shouldDownload({ previousEntry, localPath, remoteFingerprint });
 
     if (!downloadDecision.download) {
-      nextEntries.set(documentId, {
+      const nextEntry = {
         ...previousEntry,
         remotePath,
         localPath: path.relative(this.localRoot, localPath),
+        binaryFileName: remoteFingerprint.binaryFileName,
         seenAt: new Date().toISOString()
-      });
+      };
+      nextEntries.set(documentId, nextEntry);
+      await this.removePreviousLocalDocumentIfMoved(previousEntry, nextEntry, stats);
       return;
     }
 
@@ -249,8 +261,11 @@ class CmisSyncService {
       ...this.createIndexEntry(document, remotePath, localPath, 'document'),
       hash: remoteFingerprint.hash ?? localMetadata.hash,
       size: remoteFingerprint.size ?? localMetadata.size,
+      binaryFileName: remoteFingerprint.binaryFileName,
       downloadedAt: new Date().toISOString()
     });
+
+    await this.removePreviousLocalDocumentIfMoved(previousEntry, nextEntries.get(documentId), stats);
   }
 
   async shouldDownload({ previousEntry, localPath, remoteFingerprint }) {
@@ -259,8 +274,20 @@ class CmisSyncService {
     }
 
     const exists = await pathExists(localPath);
+    const previousLocalPath = previousEntry.localPath ? this.safeIndexedPath(previousEntry.localPath) : null;
+    const moved = previousLocalPath && previousLocalPath !== localPath;
+    const previousExists = moved ? await pathExists(previousLocalPath) : exists;
+
     if (!exists) {
-      return { download: true, existingFile: false };
+      return { download: true, existingFile: previousExists };
+    }
+
+    if (moved) {
+      return { download: true, existingFile: previousExists || exists };
+    }
+
+    if (remoteFingerprint.binaryFileName && previousEntry.binaryFileName !== remoteFingerprint.binaryFileName) {
+      return { download: true, existingFile: true };
     }
 
     if (remoteFingerprint.lastModified && previousEntry.lastModified !== remoteFingerprint.lastModified) {
@@ -288,6 +315,20 @@ class CmisSyncService {
         });
       }
     }
+  }
+
+  async removePreviousLocalDocumentIfMoved(previousEntry, nextEntry, stats) {
+    if (!previousEntry || previousEntry.kind !== 'document' || !nextEntry || previousEntry.localPath === nextEntry.localPath) {
+      return;
+    }
+
+    const previousLocalPath = this.safeIndexedPath(previousEntry.localPath);
+    if (previousLocalPath === this.localRoot || previousLocalPath === path.dirname(this.indexPath)) {
+      return;
+    }
+
+    await fs.rm(previousLocalPath, { force: true });
+    stats.deleted += 1;
   }
 
   async removeMissingLocalItems(previousIndex, nextEntries, errors, stats) {
@@ -345,6 +386,7 @@ class CmisSyncService {
       lastModified: fingerprint.lastModified,
       size: fingerprint.size,
       hash: fingerprint.hash,
+      binaryFileName: fingerprint.binaryFileName,
       seenAt: new Date().toISOString()
     };
   }
@@ -425,7 +467,8 @@ function getRemoteFingerprint(object) {
   return {
     lastModified: normalizeDate(object?.lastModified ?? object?.lastModificationDate ?? object?.updatedAt),
     size: normalizeOptionalNumber(object?.size ?? object?.contentStreamLength),
-    hash: object?.hash ?? object?.contentHash ?? object?.sha256 ?? null
+    hash: object?.hash ?? object?.contentHash ?? object?.sha256 ?? null,
+    binaryFileName: getBinaryFileName(object)
   };
 }
 
@@ -450,68 +493,26 @@ function joinRemotePath(parent, childName) {
 }
 
 function getLocalChildName(child, fallbackId) {
-  const safeName = sanitizePathSegment(child?.name ?? fallbackId);
-
-  if (!isDocument(child) || hasFileExtension(safeName)) {
-    return safeName;
+  const binaryFileName = getBinaryFileName(child);
+  if (isDocument(child)) {
+    return binaryFileName ? sanitizePathSegment(binaryFileName) : null;
   }
 
-  const contentFileNameExtension = getExtensionFromFileName(child?.contentStreamFileName ?? child?.fileName);
-  const mimeTypeExtension = getExtensionFromMimeType(child?.mimeType ?? child?.contentStreamMimeType);
-  const extension = contentFileNameExtension ?? mimeTypeExtension;
+  return sanitizePathSegment(child?.name ?? fallbackId);
+}
 
-  return extension ? `${safeName}${extension}` : safeName;
+function getBinaryFileName(object) {
+  const fileName = object?.contentStreamFileName ?? object?.fileName;
+  if (fileName == null || String(fileName).trim() === '') {
+    return null;
+  }
+
+  return sanitizePathSegment(fileName);
 }
 
 function sanitizePathSegment(segment) {
   const safe = String(segment).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').trim();
   return safe || 'unnamed';
-}
-
-function hasFileExtension(fileName) {
-  const extension = path.extname(fileName);
-  return extension.length > 1;
-}
-
-function getExtensionFromFileName(fileName) {
-  if (!fileName) {
-    return null;
-  }
-
-  const extension = path.extname(sanitizePathSegment(fileName)).toLowerCase();
-  return extension.length > 1 ? extension : null;
-}
-
-function getExtensionFromMimeType(mimeType) {
-  const normalized = String(mimeType ?? '').split(';')[0].trim().toLowerCase();
-  if (!normalized) {
-    return null;
-  }
-
-  const extensionsByMimeType = {
-    'application/msword': '.doc',
-    'application/octet-stream': '.bin',
-    'application/pdf': '.pdf',
-    'application/rtf': '.rtf',
-    'application/vnd.ms-excel': '.xls',
-    'application/vnd.ms-powerpoint': '.ppt',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-    'application/xml': '.xml',
-    'application/zip': '.zip',
-    'image/gif': '.gif',
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/svg+xml': '.svg',
-    'text/csv': '.csv',
-    'text/html': '.html',
-    'text/markdown': '.md',
-    'text/plain': '.txt',
-    'text/xml': '.xml'
-  };
-
-  return extensionsByMimeType[normalized] ?? null;
 }
 
 function ensureInsideRoot(root, targetPath) {
