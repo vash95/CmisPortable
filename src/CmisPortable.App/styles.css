@@ -539,3 +539,82 @@ button:hover { background: var(--primary-strong); }
     display: grid;
   }
 }
+
+.tutorial-card {
+  align-items: center;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.tutorial-card h2 {
+  margin-bottom: 8px;
+}
+
+.tutorial-card p:last-child {
+  margin-bottom: 0;
+}
+
+.tutorial-overlay {
+  align-items: center;
+  background: rgb(2 6 23 / 78%);
+  display: grid;
+  inset: 0;
+  padding: 24px;
+  position: fixed;
+  z-index: 20;
+}
+
+.tutorial-overlay[hidden] {
+  display: none;
+}
+
+.tutorial-modal {
+  margin: 0 auto;
+  max-width: 620px;
+  position: relative;
+  width: min(100%, 620px);
+}
+
+.tutorial-close {
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 8px 12px;
+  position: absolute;
+  right: 18px;
+  top: 18px;
+}
+
+.tutorial-checklist {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding-left: 22px;
+}
+
+.tutorial-checklist li {
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.tutorial-actions {
+  flex-wrap: wrap;
+}
+
+.tutorial-highlight {
+  box-shadow: 0 0 0 3px #93c5fd, 0 24px 80px rgb(37 99 235 / 34%);
+  transition: box-shadow .2s ease;
+}
+
+@media (max-width: 720px) {
+  .tutorial-card {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .tutorial-card button,
+  .tutorial-actions button {
+    width: 100%;
+  }
+}
