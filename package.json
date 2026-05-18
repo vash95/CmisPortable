@@ -39,7 +39,12 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "src/CmisPortable.App/assets/cmis-sync-icon.ico"
+    },
+    "nsis": {
+      "installerIcon": "src/CmisPortable.App/assets/cmis-sync-icon.ico",
+      "uninstallerIcon": "src/CmisPortable.App/assets/cmis-sync-icon.ico"
     }
   },
   "dependencies": {

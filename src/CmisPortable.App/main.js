@@ -18,10 +18,20 @@ let appLocale = 'en';
 
 const MAX_LOG_ENTRIES = 200;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
-const appLogoPath = path.join(__dirname, 'assets', 'logo.svg');
+const appIconPath = path.join(
+  __dirname,
+  'assets',
+  process.platform === 'win32' ? 'cmis-sync-icon.ico' : 'cmis-sync-icon.png'
+);
 
-function createAppIcon() {
-  return nativeImage.createFromPath(appLogoPath);
+function createAppIcon(size) {
+  const icon = nativeImage.createFromPath(appIconPath);
+
+  if (!size) {
+    return icon;
+  }
+
+  return icon.resize({ width: size, height: size });
 }
 
 
@@ -200,7 +210,7 @@ function createTray() {
     return tray;
   }
 
-  tray = new Tray(createAppIcon());
+  tray = new Tray(createAppIcon(16));
   tray.setToolTip('CmisPortable');
   updateTrayMenu();
   tray.on('double-click', showMainWindow);
