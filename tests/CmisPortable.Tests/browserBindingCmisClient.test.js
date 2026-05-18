@@ -138,6 +138,57 @@ test('AtomPubCmisClient expands RFC6570 query objectbyid templates with valid CM
   );
 });
 
+test('AtomPubCmisClient downloads the binary content src instead of an XML entry link', async () => {
+  const originalFetch = global.fetch;
+  const requestedUrls = [];
+
+  global.fetch = async (url) => {
+    requestedUrls.push(String(url));
+    if (String(url) === 'http://127.0.0.1/ic2v11/atom/cmis') {
+      return new Response(atomPubServiceDocument(), { status: 200, headers: { 'content-type': 'application/atomsvc+xml' } });
+    }
+    if (String(url) === 'http://127.0.0.1/ic2v11/atom/cmis/object/root-folder') {
+      return new Response(atomPubEntry({ id: 'root-folder', name: '/', type: 'cmis:folder', childrenUrl: 'http://127.0.0.1/ic2v11/atom/cmis/children/root-folder' }), { status: 200 });
+    }
+    if (String(url) === 'http://127.0.0.1/ic2v11/atom/cmis/children/root-folder') {
+      return new Response(atomPubFeed([
+        atomPubEntry({
+          id: 'doc-xml-link',
+          name: 'manual.pdf',
+          type: 'cmis:document',
+          contentUrl: 'http://127.0.0.1/ic2v11/atom/cmis/entry/doc-xml-link',
+          contentType: 'application/atom+xml;type=entry',
+          contentSrc: 'http://127.0.0.1/ic2v11/atom/cmis/content/doc-xml-link',
+          contentSrcType: 'application/pdf'
+        })
+      ]), { status: 200 });
+    }
+    if (String(url) === 'http://127.0.0.1/ic2v11/atom/cmis/entry/doc-xml-link') {
+      return new Response('<?xml version="1.0"?><entry>metadata</entry>', { status: 200, headers: { 'content-type': 'application/atom+xml;type=entry' } });
+    }
+    if (String(url) === 'http://127.0.0.1/ic2v11/atom/cmis/content/doc-xml-link') {
+      return new Response('real binary bytes', { status: 200, headers: { 'content-type': 'application/pdf' } });
+    }
+    return new Response('missing', { status: 404, statusText: 'missing' });
+  };
+
+  try {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cmis-atompub-content-src-test-'));
+    const targetPath = path.join(tempDir, 'manual.pdf');
+    const client = new AtomPubCmisClient();
+
+    await client.ConnectAsync('http://127.0.0.1/ic2v11/atom/cmis', 'ana', 'secret');
+    const children = await client.ListChildrenAsync('root-folder');
+    await client.DownloadDocumentAsync(children[0].id, targetPath);
+
+    assert.equal(await fs.readFile(targetPath, 'utf8'), 'real binary bytes');
+    assert.equal(requestedUrls.includes('http://127.0.0.1/ic2v11/atom/cmis/entry/doc-xml-link'), false);
+    assert.equal(requestedUrls.includes('http://127.0.0.1/ic2v11/atom/cmis/content/doc-xml-link'), true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('BrowserBindingCmisClient falls back to AtomPub when derived Browser Binding URL is missing', async () => {
   const originalFetch = global.fetch;
   const requestedUrls = [];
@@ -233,11 +284,12 @@ function atomPubFeed(entries) {
   return `<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/" xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/">${entries.join('')}</feed>`;
 }
 
-function atomPubEntry({ id, name, type, childrenUrl, contentUrl }) {
+function atomPubEntry({ id, name, type, childrenUrl, contentUrl, contentType, contentSrc, contentSrcType }) {
   return `<entry xmlns="http://www.w3.org/2005/Atom" xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/" xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/">
     <title>${name}</title>
     ${childrenUrl ? `<link rel="down" type="application/atom+xml;type=feed" href="${childrenUrl}" />` : ''}
-    ${contentUrl ? `<link rel="enclosure" href="${contentUrl}" />` : ''}
+    ${contentUrl ? `<link rel="enclosure"${contentType ? ` type="${contentType}"` : ''} href="${contentUrl}" />` : ''}
+    ${contentSrc ? `<content type="${contentSrcType ?? 'application/octet-stream'}" src="${contentSrc}" />` : ''}
     <cmisra:object>
       <cmis:properties>
         <cmis:propertyId propertyDefinitionId="cmis:objectId"><cmis:value>${id}</cmis:value></cmis:propertyId>
