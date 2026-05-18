@@ -366,16 +366,16 @@ class AtomPubCmisClient extends ICmisClient {
     }
 
     await fsp.mkdir(path.dirname(targetPath), { recursive: true });
-    let contentUrl = this.getObjectLink(documentId, 'enclosure') ?? this.getObjectLink(documentId, 'edit-media');
-    if (!contentUrl) {
+    let contentLinks = this.getObjectContentLinks(documentId);
+    if (contentLinks.length === 0) {
       const document = await this.fetchObjectById(documentId, 'document');
-      contentUrl = this.getObjectLink(document.id, 'enclosure') ?? this.getObjectLink(document.id, 'edit-media');
+      contentLinks = this.getObjectContentLinks(document.id);
     }
-    if (!contentUrl) {
+    if (contentLinks.length === 0) {
       throw new Error(`No se encontró un enlace AtomPub de contenido para el documento CMIS ${documentId}.`);
     }
 
-    const response = await this.request(contentUrl, `CMIS AtomPub content: ${documentId}`);
+    const response = await this.request(contentLinks[0].href, `CMIS AtomPub content: ${documentId}`);
     await fsp.writeFile(targetPath, await responseToBuffer(response));
   }
 
@@ -406,6 +406,13 @@ class AtomPubCmisClient extends ICmisClient {
     const link = links.find((candidate) => candidate.rel === rel && (!type || candidate.type === type))
       ?? links.find((candidate) => candidate.rel === rel && (!type || String(candidate.type ?? '').startsWith(type.split(';')[0])));
     return link?.href ?? null;
+  }
+
+  getObjectContentLinks(objectId) {
+    const links = this.objectLinks.get(objectId) ?? [];
+    const candidates = links.filter((link) => isAtomPubContentLink(link));
+    candidates.sort(compareAtomPubContentLinks);
+    return candidates;
   }
 
   async requestText(url, label) {
@@ -929,13 +936,54 @@ function cmisPropertyValue(xml, propertyDefinitionId) {
 }
 
 function parseAtomPubLinks(xml) {
-  return xmlElements(xml, 'link')
+  const links = xmlElements(xml, 'link')
     .map((link) => ({
       rel: xmlAttribute(link, 'rel') ?? '',
       type: xmlAttribute(link, 'type') ?? '',
       href: xmlAttribute(link, 'href') ?? ''
     }))
     .filter((link) => link.href);
+  const content = firstXmlElement(xml, 'content');
+  const contentSrc = xmlAttribute(content, 'src');
+  if (contentSrc) {
+    links.push({
+      rel: 'content',
+      type: xmlAttribute(content, 'type') ?? '',
+      href: contentSrc
+    });
+  }
+  return links;
+}
+
+function isAtomPubContentLink(link) {
+  const rel = String(link?.rel ?? '').toLowerCase();
+  return ['content', 'edit-media', 'enclosure'].includes(rel) && Boolean(link?.href);
+}
+
+function compareAtomPubContentLinks(left, right) {
+  return atomPubContentLinkScore(right) - atomPubContentLinkScore(left);
+}
+
+function atomPubContentLinkScore(link) {
+  const rel = String(link?.rel ?? '').toLowerCase();
+  const type = String(link?.type ?? '').toLowerCase();
+  let score = 0;
+  if (rel === 'content') {
+    score += 30;
+  } else if (rel === 'edit-media') {
+    score += 20;
+  } else if (rel === 'enclosure') {
+    score += 10;
+  }
+  if (!isAtomPubXmlMediaType(type)) {
+    score += 5;
+  }
+  return score;
+}
+
+function isAtomPubXmlMediaType(type) {
+  const mediaType = String(type ?? '').split(';')[0].trim().toLowerCase();
+  return ['application/atom+xml', 'application/atomsvc+xml', 'application/cmis+xml'].includes(mediaType);
 }
 
 function firstXmlElement(xml, localNamePattern) {
