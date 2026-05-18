@@ -40,6 +40,7 @@ const mainTranslations = {
     'dialog.remoteRoot': 'Repository root',
     'log.config.remoteBrowse': 'Loading CMIS source folders.',
     'tray.openSettings': 'Open settings',
+    'tray.openLogs': 'Open log console',
     'tray.syncNow': 'Sync now',
     'tray.resumeSync': 'Resume sync',
     'tray.pauseSync': 'Pause sync',
@@ -71,6 +72,7 @@ const mainTranslations = {
     'dialog.remoteRoot': 'Raíz del repositorio',
     'log.config.remoteBrowse': 'Cargando carpetas de origen CMIS.',
     'tray.openSettings': 'Abrir configuración',
+    'tray.openLogs': 'Abrir consola de log',
     'tray.syncNow': 'Sincronizar ahora',
     'tray.resumeSync': 'Reanudar sincronización',
     'tray.pauseSync': 'Pausar sincronización',
@@ -213,7 +215,7 @@ function createTray() {
   tray = new Tray(createAppIcon(16));
   tray.setToolTip('CmisPortable');
   updateTrayMenu();
-  tray.on('double-click', showMainWindow);
+  tray.on('double-click', showSettingsWindow);
   return tray;
 }
 
@@ -226,7 +228,8 @@ function updateTrayMenu() {
   const isPaused = status?.paused ?? true;
 
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: mt('tray.openSettings'), click: showMainWindow },
+    { label: mt('tray.openSettings'), click: showSettingsWindow },
+    { label: mt('tray.openLogs'), click: showLogConsoleFromTray },
     {
       label: mt('tray.syncNow'),
       click: () => backgroundSyncWorker?.forceSync('tray')
@@ -267,6 +270,30 @@ function showMainWindow() {
 
   mainWindow.show();
   mainWindow.focus();
+}
+
+function sendRendererCommand(channel) {
+  if (!mainWindow) {
+    return;
+  }
+
+  const sendCommand = () => mainWindow?.webContents.send(channel);
+  if (mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.once('did-finish-load', sendCommand);
+    return;
+  }
+
+  sendCommand();
+}
+
+function showSettingsWindow() {
+  showMainWindow();
+  sendRendererCommand('window:showSettings');
+}
+
+function showLogConsoleFromTray() {
+  showMainWindow();
+  sendRendererCommand('logs:showConsole');
 }
 
 function configureBackgroundSync(settings) {
