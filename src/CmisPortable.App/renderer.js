@@ -33,6 +33,8 @@ const syncBadge = document.querySelector('#syncBadge');
 const syncIntervalLabel = document.querySelector('#syncIntervalLabel');
 const logEntries = document.querySelector('#logEntries');
 const configuredConnections = document.querySelector('#configuredConnections');
+const appTabs = Array.from(document.querySelectorAll('.app-tab'));
+const appTabPanels = Array.from(document.querySelectorAll('.tab-panel'));
 const toggleLogConsoleButton = document.querySelector('#toggleLogConsole');
 const logConsole = document.querySelector('.log-console');
 const logConsoleContent = document.querySelector('#logConsoleContent');
@@ -177,6 +179,19 @@ function navigateToStep(stepName) {
   return true;
 }
 
+function setActiveAppTab(tabName) {
+  appTabs.forEach((tab) => {
+    const isActive = tab.dataset.appTabTarget === tabName;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+  appTabPanels.forEach((panel) => {
+    const isActive = panel.dataset.appTab === tabName;
+    panel.classList.toggle('active', isActive);
+    panel.hidden = !isActive;
+  });
+}
+
 function setActiveStep(stepName) {
   wizardSteps.forEach((step) => step.classList.toggle('active', step.dataset.step === stepName));
   stepTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.stepTarget === stepName));
@@ -217,6 +232,7 @@ function renderTutorialStep() {
 
 function showTutorialStepInWizard() {
   const step = tutorialSteps[currentTutorialStep];
+  setActiveAppTab('configuration');
   setActiveStep(step.stepName);
   clearTutorialHighlight();
   const activeStep = wizardSteps.find((wizardStep) => wizardStep.dataset.step === step.stepName);
@@ -530,6 +546,10 @@ document.querySelectorAll('[data-next-step]').forEach((button) => {
 
 stepTabs.forEach((button) => {
   button.addEventListener('click', () => navigateToStep(button.dataset.stepTarget));
+});
+
+appTabs.forEach((button) => {
+  button.addEventListener('click', () => setActiveAppTab(button.dataset.appTabTarget));
 });
 
 [fields.cmisUrl, fields.username, fields.secretValue].forEach((field) => {
