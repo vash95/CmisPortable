@@ -2,9 +2,9 @@ let currentLocale = 'en';
 
 const translations = {
   en: {
-    'hero.eyebrow': 'Step-by-step wizard',
-    'hero.title': 'Configure your CMIS sync',
-    'hero.description': 'Connect, choose the source folder, set the local path, and review activity logs while the app runs.',
+    'hero.eyebrow': 'CmisIC2',
+    'hero.title': 'Sincronización automática de carpetas del producto IC2',
+    'hero.description': '',
     'action.minimizeToTray': 'Minimize to tray',
     'action.quitApp': 'Close application',
     'action.startTutorial': 'Open tutorial',
@@ -127,9 +127,9 @@ const translations = {
     'state.unknown': 'Unknown'
   },
   es: {
-    'hero.eyebrow': 'Asistente por pasos',
-    'hero.title': 'Configura tu sincronización CMIS',
-    'hero.description': 'Conecta, elige la carpeta de origen, define la ruta local y revisa los logs mientras la aplicación trabaja.',
+    'hero.eyebrow': 'CmisIC2',
+    'hero.title': 'Sincronización automática de carpetas del producto IC2',
+    'hero.description': '',
     'action.minimizeToTray': 'Minimizar a bandeja',
     'action.quitApp': 'Cerrar aplicación',
     'action.startTutorial': 'Abrir tutorial',
