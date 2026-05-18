@@ -34,7 +34,22 @@
           <button id="startTutorialCard" class="secondary" type="button" data-i18n="action.startTutorial">Open tutorial</button>
         </section>
 
-        <form id="settingsForm" class="card wizard" novalidate>
+        <section class="tab-group card" aria-labelledby="workspaceTabsTitle">
+          <div class="tab-group-header">
+            <div>
+              <p class="eyebrow" data-i18n="tabs.eyebrow">Workspace</p>
+              <h2 id="workspaceTabsTitle" data-i18n="tabs.title">Configuration panels</h2>
+            </div>
+            <nav class="app-tabs" aria-label="Configuration, connections, and synchronization" data-i18n-aria-label="tabs.label" role="tablist">
+              <button class="app-tab active" id="configurationTab" type="button" data-app-tab-target="configuration" aria-controls="configurationPanel" aria-selected="true" role="tab" data-i18n="tabs.configuration">Configuration</button>
+              <button class="app-tab" id="connectionsTab" type="button" data-app-tab-target="connections" aria-controls="connectionsPanel" aria-selected="false" role="tab" data-i18n="tabs.connections">Connections</button>
+              <button class="app-tab" id="synchronizationTab" type="button" data-app-tab-target="synchronization" aria-controls="synchronizationPanel" aria-selected="false" role="tab" data-i18n="tabs.synchronization">Synchronization</button>
+            </nav>
+          </div>
+
+          <div class="tab-panels">
+            <div class="tab-panel active" id="configurationPanel" data-app-tab="configuration" role="tabpanel" aria-labelledby="configurationTab">
+              <form id="settingsForm" class="wizard" novalidate>
           <nav class="stepper" aria-label="Setup steps" data-i18n-aria-label="wizard.stepsLabel">
             <button class="step-tab active" type="button" data-step-target="connection"><span>1</span><strong data-i18n="wizard.step.connection">Connection</strong></button>
             <button class="step-tab" type="button" data-step-target="folders"><span>2</span><strong data-i18n="wizard.step.folders">Source and path</strong></button>
@@ -126,9 +141,11 @@
               <button class="primary" type="submit" data-i18n="action.saveConnection">Save new connection</button>
             </footer>
           </section>
-        </form>
+              </form>
+            </div>
 
-        <section class="connection-list card" aria-labelledby="configuredConnectionsTitle">
+            <section class="tab-panel connection-list" id="connectionsPanel" data-app-tab="connections" role="tabpanel" aria-labelledby="connectionsTab" hidden>
+
           <div class="connection-list-header">
             <div>
               <h2 id="configuredConnectionsTitle" data-i18n="connections.title">Configured connections</h2>
@@ -136,9 +153,9 @@
             </div>
           </div>
           <ol id="configuredConnections" class="configured-connections" aria-live="polite" aria-label="Configured connections" data-i18n-aria-label="connections.title"></ol>
-        </section>
+            </section>
 
-        <section class="status card">
+            <section class="tab-panel status" id="synchronizationPanel" data-app-tab="synchronization" role="tabpanel" aria-labelledby="synchronizationTab" hidden>
           <div class="status-header">
             <div>
               <h2 data-i18n="sync.title">Sync status</h2>
@@ -157,6 +174,8 @@
             <button id="forceSync" class="secondary" type="button" data-i18n="action.forceSync">Sync now</button>
             <button id="refreshSyncStatus" class="ghost" type="button" data-i18n="action.refreshStatus">View latest status</button>
           </footer>
+            </section>
+          </div>
         </section>
       </div>
 

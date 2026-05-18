@@ -157,8 +157,67 @@ button:hover { background: var(--primary-strong); }
 
 .status { margin-top: 20px; }
 
+.tab-group {
+  display: grid;
+  gap: 22px;
+}
+
+.tab-group-header {
+  align-items: end;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.tab-group-header h2 {
+  margin-bottom: 0;
+}
+
+.app-tabs {
+  background: #020617;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+}
+
+.app-tab {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  padding: 10px 16px;
+}
+
+.app-tab:hover,
+.app-tab.active {
+  background: rgb(37 99 235 / 34%);
+  color: var(--text);
+}
+
+.tab-panels {
+  min-width: 0;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.tab-panel.connection-list,
+.tab-panel.status {
+  margin-top: 0;
+}
+
 @media (max-width: 720px) {
   .hero, .grid { grid-template-columns: 1fr; display: grid; }
+  .tab-group-header { align-items: stretch; display: grid; }
+  .app-tabs { border-radius: 18px; }
+  .app-tab { flex: 1 1 auto; }
   .hero-brand { grid-template-columns: 1fr; justify-items: start; }
   .hero-actions { justify-content: stretch; }
   .hero-actions button { width: 100%; }
