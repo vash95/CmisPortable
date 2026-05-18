@@ -7,6 +7,12 @@ const translations = {
     'hero.description': 'Connect, choose the source folder, set the local path, and review activity logs while the app runs.',
     'action.minimizeToTray': 'Minimize to tray',
     'action.quitApp': 'Close application',
+    'action.startTutorial': 'Open tutorial',
+    'action.closeTutorial': 'Close tutorial',
+    'action.tutorialPrevious': 'Previous',
+    'action.tutorialNext': 'Next',
+    'action.tutorialFinish': 'Finish',
+    'action.tutorialShowStep': 'Show this step',
     'field.cmisUrl': 'CMIS URL',
     'placeholder.cmisUrl': 'https://server/ic2v11/atom/cmis',
     'field.username': 'Username',
@@ -86,6 +92,22 @@ const translations = {
     'wizard.step.folders': 'Source and path',
     'wizard.step.schedule': 'Sync time',
     'wizard.step.manage': 'Manage',
+    'tutorial.eyebrow': 'Guided help',
+    'tutorial.title': 'Need help getting started?',
+    'tutorial.description': 'Launch the tutorial to see what each step does before you save your first CMIS connection.',
+    'tutorial.stepCount': ({ current, total }) => `Step ${current} of ${total}`,
+    'tutorial.connection.title': 'Connect to CMIS',
+    'tutorial.connection.body': 'Start by entering the CMIS endpoint and your credentials. The Validate connection button confirms that the app can reach the repository.',
+    'tutorial.connection.checklist': ['Use the full AtomPub CMIS URL.', 'Enter the user that has access to the documents.', 'Validate before moving to folder selection.'],
+    'tutorial.folders.title': 'Choose the source and destination',
+    'tutorial.folders.body': 'Load the remote folders, pick the CMIS folder to sync from, and select the local folder where files will be copied.',
+    'tutorial.folders.checklist': ['Show source folders after validating the connection.', 'Select a remote folder or use the repository root.', 'Choose an empty or dedicated local folder.'],
+    'tutorial.schedule.title': 'Set the sync rhythm',
+    'tutorial.schedule.body': 'Decide how frequently CmisPortable checks the server and whether it should keep syncing from the tray when the window is closed.',
+    'tutorial.schedule.checklist': ['Use shorter intervals for active workspaces.', 'Keep background mode enabled for unattended sync.', 'You can still pause sync later from the status panel.'],
+    'tutorial.manage.title': 'Save and monitor',
+    'tutorial.manage.body': 'Save the configuration, review the active connection, then use the status and log panels to monitor synchronization.',
+    'tutorial.manage.checklist': ['Save the new connection once all required fields are complete.', 'Start or pause sync from the status card.', 'Open the log console if you need troubleshooting details.'],
     'wizard.connection.title': '1. Connection',
     'wizard.connection.description': 'Enter the CMIS server and credentials first. Use Validate connection before choosing folders.',
     'wizard.folders.title': '2. Source folder and local path',
@@ -110,6 +132,12 @@ const translations = {
     'hero.description': 'Conecta, elige la carpeta de origen, define la ruta local y revisa los logs mientras la aplicación trabaja.',
     'action.minimizeToTray': 'Minimizar a bandeja',
     'action.quitApp': 'Cerrar aplicación',
+    'action.startTutorial': 'Abrir tutorial',
+    'action.closeTutorial': 'Cerrar tutorial',
+    'action.tutorialPrevious': 'Anterior',
+    'action.tutorialNext': 'Siguiente',
+    'action.tutorialFinish': 'Finalizar',
+    'action.tutorialShowStep': 'Mostrar este paso',
     'field.cmisUrl': 'URL CMIS',
     'placeholder.cmisUrl': 'https://servidor/ic2v11/atom/cmis',
     'field.username': 'Usuario',
@@ -189,6 +217,22 @@ const translations = {
     'wizard.step.folders': 'Origen y ruta',
     'wizard.step.schedule': 'Tiempo',
     'wizard.step.manage': 'Gestionar',
+    'tutorial.eyebrow': 'Ayuda guiada',
+    'tutorial.title': '¿Necesitas ayuda para empezar?',
+    'tutorial.description': 'Abre el tutorial para ver qué hace cada paso antes de guardar tu primera conexión CMIS.',
+    'tutorial.stepCount': ({ current, total }) => `Paso ${current} de ${total}`,
+    'tutorial.connection.title': 'Conecta con CMIS',
+    'tutorial.connection.body': 'Empieza introduciendo el endpoint CMIS y tus credenciales. El botón Validar conexión confirma que la app puede acceder al repositorio.',
+    'tutorial.connection.checklist': ['Usa la URL CMIS AtomPub completa.', 'Introduce un usuario con acceso a los documentos.', 'Valida antes de pasar a la selección de carpetas.'],
+    'tutorial.folders.title': 'Elige origen y destino',
+    'tutorial.folders.body': 'Carga las carpetas remotas, selecciona la carpeta CMIS desde la que sincronizar y elige la carpeta local donde se copiarán los archivos.',
+    'tutorial.folders.checklist': ['Muestra las carpetas de origen después de validar la conexión.', 'Selecciona una carpeta remota o usa la raíz del repositorio.', 'Elige una carpeta local vacía o dedicada.'],
+    'tutorial.schedule.title': 'Define el ritmo de sincronización',
+    'tutorial.schedule.body': 'Decide cada cuánto CmisPortable revisa el servidor y si debe seguir sincronizando desde la bandeja al cerrar la ventana.',
+    'tutorial.schedule.checklist': ['Usa intervalos cortos para espacios de trabajo activos.', 'Mantén el segundo plano activado para sincronización desatendida.', 'Después puedes pausar la sincronización desde el panel de estado.'],
+    'tutorial.manage.title': 'Guarda y monitoriza',
+    'tutorial.manage.body': 'Guarda la configuración, revisa la conexión activa y usa los paneles de estado y logs para seguir la sincronización.',
+    'tutorial.manage.checklist': ['Guarda la nueva conexión cuando todos los campos requeridos estén completos.', 'Inicia o pausa la sincronización desde la tarjeta de estado.', 'Abre la consola de log si necesitas detalles para solucionar problemas.'],
     'wizard.connection.title': '1. Conexión',
     'wizard.connection.description': 'Introduce primero el servidor CMIS y las credenciales. Usa Validar conexión antes de elegir carpetas.',
     'wizard.folders.title': '2. Carpeta de origen y ruta local',
@@ -247,8 +291,24 @@ const remoteFolderList = document.querySelector('#remoteFolderList');
 const remoteFolderLabel = document.querySelector('#remoteFolderLabel');
 const wizardSteps = Array.from(document.querySelectorAll('.wizard-step'));
 const stepTabs = Array.from(document.querySelectorAll('.step-tab'));
+const tutorialOverlay = document.querySelector('#tutorialOverlay');
+const tutorialStepCount = document.querySelector('#tutorialStepCount');
+const tutorialStepTitle = document.querySelector('#tutorialStepTitle');
+const tutorialStepBody = document.querySelector('#tutorialStepBody');
+const tutorialStepChecklist = document.querySelector('#tutorialStepChecklist');
+const tutorialPreviousButton = document.querySelector('#tutorialPrevious');
+const tutorialNextButton = document.querySelector('#tutorialNext');
+const tutorialShowStepButton = document.querySelector('#tutorialShowStep');
 const remoteHistory = [];
 let validatedConnectionKey = null;
+let currentTutorialStep = 0;
+
+const tutorialSteps = [
+  { stepName: 'connection', titleKey: 'tutorial.connection.title', bodyKey: 'tutorial.connection.body', checklistKey: 'tutorial.connection.checklist' },
+  { stepName: 'folders', titleKey: 'tutorial.folders.title', bodyKey: 'tutorial.folders.body', checklistKey: 'tutorial.folders.checklist' },
+  { stepName: 'schedule', titleKey: 'tutorial.schedule.title', bodyKey: 'tutorial.schedule.body', checklistKey: 'tutorial.schedule.checklist' },
+  { stepName: 'manage', titleKey: 'tutorial.manage.title', bodyKey: 'tutorial.manage.body', checklistKey: 'tutorial.manage.checklist' }
+];
 
 const fields = {
   cmisUrl: document.querySelector('#cmisUrl'),
@@ -371,6 +431,52 @@ function navigateToStep(stepName) {
 function setActiveStep(stepName) {
   wizardSteps.forEach((step) => step.classList.toggle('active', step.dataset.step === stepName));
   stepTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.stepTarget === stepName));
+}
+
+function openTutorial(stepIndex = 0) {
+  currentTutorialStep = Math.min(Math.max(stepIndex, 0), tutorialSteps.length - 1);
+  tutorialOverlay.hidden = false;
+  renderTutorialStep();
+  tutorialNextButton.focus();
+}
+
+function closeTutorial() {
+  tutorialOverlay.hidden = true;
+  clearTutorialHighlight();
+}
+
+function renderTutorialStep() {
+  const step = tutorialSteps[currentTutorialStep];
+  const checklist = translate(step.checklistKey);
+
+  tutorialStepCount.textContent = translate('tutorial.stepCount', {
+    current: currentTutorialStep + 1,
+    total: tutorialSteps.length
+  });
+  tutorialStepTitle.textContent = translate(step.titleKey);
+  tutorialStepBody.textContent = translate(step.bodyKey);
+  tutorialStepChecklist.replaceChildren(...checklist.map((item) => {
+    const listItem = document.createElement('li');
+    listItem.textContent = item;
+    return listItem;
+  }));
+  tutorialPreviousButton.disabled = currentTutorialStep === 0;
+  tutorialNextButton.textContent = translate(currentTutorialStep === tutorialSteps.length - 1
+    ? 'action.tutorialFinish'
+    : 'action.tutorialNext');
+}
+
+function showTutorialStepInWizard() {
+  const step = tutorialSteps[currentTutorialStep];
+  setActiveStep(step.stepName);
+  clearTutorialHighlight();
+  const activeStep = wizardSteps.find((wizardStep) => wizardStep.dataset.step === step.stepName);
+  activeStep?.classList.add('tutorial-highlight');
+  activeStep?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function clearTutorialHighlight() {
+  wizardSteps.forEach((step) => step.classList.remove('tutorial-highlight'));
 }
 
 function setRemoteFolder(folder, showFeedback = true) {
@@ -669,6 +775,34 @@ stepTabs.forEach((button) => {
 
 [fields.cmisUrl, fields.username, fields.secretValue].forEach((field) => {
   field.addEventListener('input', resetConnectionValidation);
+});
+
+document.querySelector('#startTutorial').addEventListener('click', () => openTutorial());
+document.querySelector('#startTutorialCard').addEventListener('click', () => openTutorial());
+document.querySelector('#closeTutorial').addEventListener('click', closeTutorial);
+tutorialPreviousButton.addEventListener('click', () => {
+  currentTutorialStep -= 1;
+  renderTutorialStep();
+});
+tutorialNextButton.addEventListener('click', () => {
+  if (currentTutorialStep === tutorialSteps.length - 1) {
+    closeTutorial();
+    return;
+  }
+
+  currentTutorialStep += 1;
+  renderTutorialStep();
+});
+tutorialShowStepButton.addEventListener('click', showTutorialStepInWizard);
+tutorialOverlay.addEventListener('click', (event) => {
+  if (event.target === tutorialOverlay) {
+    closeTutorial();
+  }
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !tutorialOverlay.hidden) {
+    closeTutorial();
+  }
 });
 
 document.querySelector('#minimizeToTray').addEventListener('click', () => {
